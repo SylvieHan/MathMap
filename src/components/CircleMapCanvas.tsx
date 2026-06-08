@@ -623,7 +623,7 @@ export function CircleMapCanvas({
       const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
 
       if (d.mode === 'pending' && dist >= DRAG_THRESHOLD) {
-        if (e.shiftKey && d.dragTarget && !readOnly && d.anchorX !== undefined && d.anchorY !== undefined) {
+        if (e.shiftKey && d.dragTarget && d.anchorX !== undefined && d.anchorY !== undefined) {
           d.mode = 'node';
           setTensionTarget(d.dragTarget);
           setIsForceDragging(true);

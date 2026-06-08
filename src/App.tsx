@@ -8,7 +8,7 @@ import { useMap } from './hooks/useMap';
 import { usePreventBrowserZoom } from './hooks/usePreventBrowserZoom';
 import { useTheme } from './hooks/useTheme';
 import { DEFAULT_LATEX_PACKAGES } from './utils/latex';
-import { isEmbedMode, isPublishedSite } from './utils/siteMode';
+import { isEmbedMode } from './utils/siteMode';
 import type { DrillState, MapSelection } from './types/selection';
 import { EMPTY_DRILL } from './types/selection';
 function App() {
@@ -63,7 +63,6 @@ function App() {
 
   const embed = isEmbedMode();
   const showOnboarding = !readOnly && (map.meta.seedVersion ?? 0) >= 2;
-  const showPublishedHint = readOnly && isPublishedSite() && !embed;
 
   const latexPackages = map.meta.latexPackages ?? DEFAULT_LATEX_PACKAGES;
 
@@ -95,12 +94,6 @@ function App() {
         onClose={() => setSettingsOpen(false)}
         onSave={updateLatexPackages}
       />
-
-      {showPublishedHint && (
-        <div className="published-hint">
-          Interactive math concept map — click any circle to explore definitions, history, and connections.
-        </div>
-      )}
 
       {showOnboarding && (
         <div className="onboarding-banner">

@@ -1,3 +1,4 @@
+import { isPublishedSite } from '../utils/siteMode';
 import type { MapNode } from '../types';
 import { SearchBar } from './SearchBar';
 
@@ -50,7 +51,7 @@ export function Toolbar({
             aria-label="Map title"
           />
         )}
-        {readOnly && <span className="readonly-badge">View only</span>}
+        {readOnly && !isPublishedSite() && <span className="readonly-badge">View only</span>}
       </div>
 
       <SearchBar

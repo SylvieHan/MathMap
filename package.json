@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build",
     "build:site": "VITE_PUBLISHED_SITE=true npm run build",
     "build:pages": "VITE_PUBLISHED_SITE=true GITHUB_PAGES=true VITE_BASE_PATH=/MathMap/ npm run build",
+    "deploy": "npm run build:pages && gh-pages -d dist -m \"Deploy MathMap site\"",
     "lint": "eslint .",
     "preview": "vite preview",
     "example-map": "node scripts/build-example-map.mjs"
@@ -34,6 +35,7 @@
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "gh-pages": "^6.3.0",
     "globals": "^17.6.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
