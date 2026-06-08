@@ -318,7 +318,14 @@ function clampInsideFieldDisc(
     n.x = f.x + nx * maxD;
     n.y = f.y + ny * maxD;
     if (velocities) {
-      velocities.set(n.id, { vx: 0, vy: 0 });
+      const v = velocities.get(n.id);
+      if (v) {
+        const dot = v.vx * nx + v.vy * ny;
+        if (dot > 0) {
+          v.vx -= dot * nx;
+          v.vy -= dot * ny;
+        }
+      }
     }
   }
 }
@@ -338,7 +345,14 @@ function clampInsideContainerDisc(
     child.x = container.x + nx * maxD;
     child.y = container.y + ny * maxD;
     if (velocities) {
-      velocities.set(child.id, { vx: 0, vy: 0 });
+      const v = velocities.get(child.id);
+      if (v) {
+        const dot = v.vx * nx + v.vy * ny;
+        if (dot > 0) {
+          v.vx -= dot * nx;
+          v.vy -= dot * ny;
+        }
+      }
     }
   }
 }
@@ -379,6 +393,33 @@ export function clampConceptNode(
     simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
   );
   clampConceptContainers(node, simNodes, fields, velocities);
+}
+
+/** Frames a settle animation runs before motion is fully cooled to rest. */
+export const SETTLE_MAX_FRAMES = 150;
+const SETTLE_FREE_FRAMES = 40;
+
+/**
+ * Anneal a settle: let physics run freely, then geometrically bleed off energy so
+ * the system always reaches rest (no infinite oscillation). Returns true when the
+ * settle should hard-stop (cooled out).
+ */
+export function annealSettleVelocities(
+  velocities: Map<string, { vx: number; vy: number }>,
+  frame: number,
+  maxFrames = SETTLE_MAX_FRAMES,
+): boolean {
+  const cool =
+    frame < SETTLE_FREE_FRAMES
+      ? 1
+      : Math.max(0, 1 - (frame - SETTLE_FREE_FRAMES) / (maxFrames - SETTLE_FREE_FRAMES));
+  if (cool < 1) {
+    for (const v of velocities.values()) {
+      v.vx *= cool;
+      v.vy *= cool;
+    }
+  }
+  return frame >= maxFrames;
 }
 
 function capVelocity(v: { vx: number; vy: number }, max = MAX_DRAG_SPEED): void {
@@ -568,14 +609,10 @@ export function stepContainerDragPhysics(
         child.y -= ny * penetration * 0.55;
       }
 
-      if (child.kind === 'concept') {
-        clampConceptContainers(child, simNodes, fields, velocities);
-      } else if (container.kind === 'subfield') {
+      if (container.kind === 'subfield' && child.kind === 'concept') {
         clampInsideContainerDisc(child, container, velocities);
-        clampInsideFieldDisc(child, fields, velocities);
-      } else {
-        clampInsideFieldDisc(child, fields, velocities);
       }
+      clampInsideFieldDisc(child, fields, velocities);
       worldPositions.set(child.id, { x: child.x, y: child.y });
     }
 
@@ -584,11 +621,10 @@ export function stepContainerDragPhysics(
       applyFieldCollisions(children, movable, velocities, fixedIds);
     }
     for (const child of children) {
-      if (child.kind === 'concept') {
-        clampConceptContainers(child, simNodes, fields, velocities);
-      } else {
-        clampInsideFieldDisc(child, fields, velocities);
+      if (container.kind === 'subfield' && child.kind === 'concept') {
+        clampInsideContainerDisc(child, container, velocities);
       }
+      clampInsideFieldDisc(child, fields, velocities);
       worldPositions.set(child.id, { x: child.x, y: child.y });
     }
   }
@@ -630,11 +666,7 @@ export function stepContainerReleasePhysics(
     velocities.set(child.id, v);
     child.x += v.vx;
     child.y += v.vy;
-    if (child.kind === 'concept') {
-      clampConceptContainers(child, simNodes, fields, velocities);
-    } else {
-      clampInsideFieldDisc(child, fields, velocities);
-    }
+    clampInsideFieldDisc(child, fields, velocities);
     maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
   }
 
@@ -643,11 +675,7 @@ export function stepContainerReleasePhysics(
     applyFieldCollisions(children, movable, velocities, new Set());
   }
   for (const child of children) {
-    if (child.kind === 'concept') {
-      clampConceptContainers(child, simNodes, fields, velocities);
-    } else {
-      clampInsideFieldDisc(child, fields, velocities);
-    }
+    clampInsideFieldDisc(child, fields, velocities);
     const v = velocities.get(child.id);
     if (v) maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
   }
@@ -963,13 +991,22 @@ function collectTensionAffected(
   for (const id of velocities.keys()) {
     if (byId.has(id)) affected.add(id);
   }
-  for (const edge of edges) {
-    if (isTagEdgeId(edge.id)) continue;
-    const a = byId.get(edge.source);
-    const b = byId.get(edge.target);
-    if (!a || !b) continue;
-    if (affected.has(a.id)) affected.add(b.id);
-    if (affected.has(b.id)) affected.add(a.id);
+  // Grow only through same-field links; cross-field tension is handled at the
+  // field level and would otherwise drag unrelated fields against their bounds.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const edge of edges) {
+      if (isTagEdgeId(edge.id)) continue;
+      const a = byId.get(edge.source);
+      const b = byId.get(edge.target);
+      if (!a || !b || a.fieldId !== b.fieldId) continue;
+      if (!affected.has(a.id) && !affected.has(b.id)) continue;
+      const before = affected.size;
+      affected.add(a.id);
+      affected.add(b.id);
+      if (affected.size > before) grew = true;
+    }
   }
   return affected;
 }
@@ -989,7 +1026,10 @@ function springIdeal(
     : sameSubfield
       ? SPRING_K.sameSubfield
       : SPRING_K.sameField;
-  const ideal = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
+  const base = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
+  // Never ask linked balls to overlap; rest length respects the no-overlap gap so
+  // springs and hard separation cannot fight forever.
+  const ideal = Math.max(base, a.r + b.r + 6);
   return { ideal, k };
 }
 
@@ -1010,75 +1050,84 @@ export function stepTensionSprings(
   const fields = new Map(
     simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
   );
-  const affected = collectTensionAffected(anchorId, edges, byId, velocities);
-  if (affected.size === 0) return false;
+  // Spring participants: dragged ball + direct neighbors (drag), or whole moving
+  // component (release). Springs are limited to these so dragging one ball does
+  // not yank the whole graph into orbit.
+  const springSet = collectTensionAffected(anchorId, edges, byId, velocities);
+  if (springSet.size === 0) return false;
 
   const isDrag = !!anchorId;
   const damping = isDrag ? TENSION_DRAG_DAMPING : TENSION_DAMPING;
+  const maxV = isDrag ? 2.6 : MAX_DRAG_SPEED;
 
-  if (isDrag) {
-    for (const id of affected) {
-      if (id !== anchorId) velocities.set(id, { vx: 0, vy: 0 });
-    }
+  // Collision + boundary participants: EVERY movable concept in the involved
+  // fields, so all balls (linked or not) keep no-overlap and stay in bounds.
+  const involvedFields = new Set<string>();
+  for (const id of springSet) {
+    const n = byId.get(id);
+    if (n) involvedFields.add(n.fieldId);
   }
+  const mates = concepts.filter(
+    (n) => involvedFields.has(n.fieldId) && !n.mapNode.pinned,
+  );
+  const mateMovable = new Set(mates.map((n) => n.id));
+  const fixedIds = anchorId ? new Set([anchorId]) : new Set<string>();
 
   let maxSpeed = 0;
 
   for (let step = 0; step < substeps; step++) {
     const forces = new Map<string, { fx: number; fy: number }>();
-    for (const id of affected) forces.set(id, { fx: 0, fy: 0 });
+    for (const n of mates) forces.set(n.id, { fx: 0, fy: 0 });
 
     for (const edge of edges) {
       if (isTagEdgeId(edge.id)) continue;
       const a = byId.get(edge.source);
       const b = byId.get(edge.target);
       if (!a || !b) continue;
-      if (!affected.has(a.id) || !affected.has(b.id)) continue;
+      if (a.fieldId !== b.fieldId) continue;
+      if (!springSet.has(a.id) || !springSet.has(b.id)) continue;
       if (isDrag && edge.source !== anchorId && edge.target !== anchorId) continue;
 
       const w = edge.weight ?? 1;
       const { ideal, k } = springIdeal(a, b, nodes, w);
-      const dragK = isDrag ? k * 0.55 : k;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy) || 1;
       const stretch = dist - ideal;
-      const mag = dragK * stretch * w;
+      const mag = k * stretch * w;
       const fx = (dx / dist) * mag;
       const fy = (dy / dist) * mag;
 
-      forces.get(a.id)!.fx += fx;
-      forces.get(a.id)!.fy += fy;
-      forces.get(b.id)!.fx -= fx;
-      forces.get(b.id)!.fy -= fy;
+      const fa = forces.get(a.id);
+      const fb = forces.get(b.id);
+      if (fa) {
+        fa.fx += fx;
+        fa.fy += fy;
+      }
+      if (fb) {
+        fb.fx -= fx;
+        fb.fy -= fy;
+      }
     }
 
-    const fixedIds = anchorId ? new Set([anchorId]) : new Set<string>();
-    const collisionNodes = [...affected]
-      .map((id) => byId.get(id))
-      .filter((n): n is ForceSimNode => !!n);
-
-    if (collisionNodes.length > 1) {
-      const movable = new Set(collisionNodes.map((n) => n.id));
-      separateCircleOverlaps(collisionNodes, movable, fixedIds);
-      applyFieldCollisions(collisionNodes, movable, velocities, fixedIds);
+    if (mates.length > 1) {
+      separateCircleOverlaps(mates, mateMovable, fixedIds);
+      applyFieldCollisions(mates, mateMovable, velocities, fixedIds);
     }
 
-    for (const id of affected) {
-      const n = byId.get(id);
-      if (!n || n.mapNode.pinned) continue;
-
-      if (anchorId === id) {
-        velocities.set(id, { vx: 0, vy: 0 });
+    for (const n of mates) {
+      if (n.mapNode.pinned) continue;
+      if (n.id === anchorId) {
+        velocities.set(n.id, { vx: 0, vy: 0 });
         continue;
       }
 
-      const f = forces.get(id) ?? { fx: 0, fy: 0 };
-      const v = velocities.get(id) ?? { vx: 0, vy: 0 };
+      const f = forces.get(n.id) ?? { fx: 0, fy: 0 };
+      const v = velocities.get(n.id) ?? { vx: 0, vy: 0 };
       v.vx = (v.vx + f.fx) * damping;
       v.vy = (v.vy + f.fy) * damping;
-      capVelocity(v, isDrag ? 2.2 : MAX_DRAG_SPEED);
-      velocities.set(id, v);
+      capVelocity(v, maxV);
+      velocities.set(n.id, v);
 
       n.x += v.vx;
       n.y += v.vy;
@@ -1086,15 +1135,14 @@ export function stepTensionSprings(
       maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
     }
 
-    if (collisionNodes.length > 1) {
-      const movable = new Set(collisionNodes.map((n) => n.id));
-      separateCircleOverlaps(collisionNodes, movable, fixedIds);
-      for (const mate of collisionNodes) {
-        clampConceptContainers(mate, simNodes, fields, velocities);
+    if (mates.length > 1) {
+      separateCircleOverlaps(mates, mateMovable, fixedIds);
+      for (const n of mates) {
+        clampConceptContainers(n, simNodes, fields, velocities);
       }
     }
 
-    if (isDrag && anchorId) {
+    if (anchorId) {
       const anchorNode = byId.get(anchorId);
       if (anchorNode) clampConceptContainers(anchorNode, simNodes, fields, velocities);
     }

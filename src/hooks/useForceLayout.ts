@@ -5,6 +5,7 @@ import type { MapEdge, MapNode } from '../types';
 import type { DragTarget } from '../utils/dragTarget';
 import type { CircleItem } from '../utils/circleLayout';
 import {
+  annealSettleVelocities,
   buildForceGraph,
   createFieldSimulation,
   primarySimNodeIdsForDragTarget,
@@ -127,6 +128,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     (fieldId: string, childIds: string[], onSettled?: () => void) => {
       cancelTensionSettle();
 
+      let frame = 0;
       const tick = () => {
         const moving = stepContainerReleasePhysics(
           simNodesRef.current,
@@ -134,10 +136,11 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           childIds,
           tensionVelocitiesRef.current,
         );
+        const cooled = annealSettleVelocities(tensionVelocitiesRef.current, frame++);
         syncRelOffsetsFromField();
         publishLayout();
 
-        if (moving) {
+        if (moving && !cooled) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
@@ -164,16 +167,18 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       isTensionSettlingRef.current = true;
       setIsTensionSettling(true);
 
+      let frame = 0;
       const tick = () => {
         const moving = stepSubfieldReleaseSprings(
           simNodesRef.current,
           edges,
           tensionVelocitiesRef.current,
         );
+        const cooled = annealSettleVelocities(tensionVelocitiesRef.current, frame++);
         syncRelOffsetsFromField();
         publishLayout();
 
-        if (moving) {
+        if (moving && !cooled) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
@@ -204,6 +209,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       isTensionSettlingRef.current = true;
       setIsTensionSettling(true);
 
+      let frame = 0;
       const tick = () => {
         const moving = stepTensionSprings(
           simNodesRef.current,
@@ -212,10 +218,11 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           nodes,
           velocities,
         );
+        const cooled = annealSettleVelocities(velocities, frame++);
         syncRelOffsetsFromField();
         publishLayout();
 
-        if (moving) {
+        if (moving && !cooled) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
