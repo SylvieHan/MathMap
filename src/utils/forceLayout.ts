@@ -216,8 +216,26 @@ export function simNodesToCircleItems(simNodes: ForceSimNode[]): CircleItem[] {
   return items;
 }
 
+export type DragTargetShape =
+  | { kind: 'concept'; nodeId: string }
+  | { kind: 'field'; fieldId: string }
+  | { kind: 'subfield'; fieldId: string; subfieldKey: string };
+
+/** Nodes moved directly under the pointer (field, subfield, or concept). */
+export function primarySimNodeIdsForDragTarget(target: DragTargetShape): string[] {
+  switch (target.kind) {
+    case 'concept':
+      return [target.nodeId];
+    case 'field':
+      return [target.fieldId];
+    case 'subfield':
+      return [`${target.fieldId}__sf__${target.subfieldKey}`];
+  }
+}
+
+/** All nodes in the dragged group (for follower offsets and tension). */
 export function simNodeIdsForDragTarget(
-  target: { kind: 'concept'; nodeId: string } | { kind: 'field'; fieldId: string } | { kind: 'subfield'; fieldId: string; subfieldKey: string },
+  target: DragTargetShape,
   simNodes: ForceSimNode[],
 ): string[] {
   switch (target.kind) {

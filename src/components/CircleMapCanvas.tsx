@@ -623,9 +623,9 @@ export function CircleMapCanvas({
       const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
 
       if (d.mode === 'pending' && dist >= DRAG_THRESHOLD) {
-        if (e.shiftKey && d.dragTarget && d.anchorX !== undefined && d.anchorY !== undefined) {
+        if (d.dragTarget && d.anchorX !== undefined && d.anchorY !== undefined) {
           d.mode = 'node';
-          setTensionTarget(d.dragTarget);
+          if (e.shiftKey) setTensionTarget(d.dragTarget);
           setIsForceDragging(true);
           beginDragGroup(d.dragTarget);
         } else {
@@ -891,7 +891,7 @@ export function CircleMapCanvas({
     return (
       <g
         key={item.id}
-        className={`circle-item circle-${item.kind}${dimmed ? ' dimmed' : ''}${selected ? ' selected' : ''}${hovered ? ' hovered' : ''}${dragging ? ' dragging' : ''}${bgField ? ' background-field' : ''}${overviewField ? ' overview-field' : ''}${subfieldContainer ? ' subfield-container' : ''}${item.kind !== 'concept' || dragging ? ' clickable' : ''}`}
+        className={`circle-item circle-${item.kind}${dimmed ? ' dimmed' : ''}${selected ? ' selected' : ''}${hovered ? ' hovered' : ''}${dragging ? ' dragging' : ''}${bgField ? ' background-field' : ''}${overviewField ? ' overview-field' : ''}${subfieldContainer ? ' subfield-container' : ''} clickable`}
         style={{ opacity: itemOpacity }}
       >
         {dragging && anchor && (

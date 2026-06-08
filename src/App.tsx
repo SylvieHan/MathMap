@@ -131,7 +131,7 @@ function App() {
 
       {showOnboarding && (
         <div className="onboarding-banner">
-          Click any circle — its <strong>table of contents</strong> opens in the side panel. Drag to pan; <strong>Shift+drag</strong> a concept to feel connection tension spring it back.
+          Click any circle — its <strong>table of contents</strong> opens in the side panel. <strong>Drag</strong> circles to move them; drag a field and inner circles follow with a slight spring. <strong>Shift+drag</strong> to feel connection tension.
         </div>
       )}
 

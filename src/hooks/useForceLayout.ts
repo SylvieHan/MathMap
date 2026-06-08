@@ -7,6 +7,7 @@ import type { CircleItem } from '../utils/circleLayout';
 import {
   buildForceGraph,
   createFieldSimulation,
+  primarySimNodeIdsForDragTarget,
   simNodeIdsForDragTarget,
   simNodesToCircleItems,
   syncChildrenToFields,
@@ -15,6 +16,8 @@ import {
 } from '../utils/forceLayout';
 
 const ENTRY_ALPHA = 0.38;
+/** How quickly children catch up when dragging a field or subfield (0–1 per move). */
+const CHILD_FOLLOW_SPRING = 0.48;
 
 export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const [layout, setLayout] = useState<CircleItem[]>([]);
@@ -22,6 +25,8 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const simRef = useRef<Simulation<ForceSimNode, SimLink> | null>(null);
   const simNodesRef = useRef<ForceSimNode[]>([]);
   const dragOriginsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const dragFollowOffsetsRef = useRef<Map<string, { dx: number; dy: number }>>(new Map());
+  const dragPrimaryIdRef = useRef<string | null>(null);
   const isDraggingRef = useRef(false);
 
   const graphKey = `${nodes.length}:${edges.length}:${nodes.map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.pinned}`).join(';')}`;
@@ -46,11 +51,26 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     sim.alpha(Math.max(sim.alpha(), alpha)).restart();
   }, []);
 
+  const syncRelOffsetsFromField = useCallback(() => {
+    const fields = new Map(
+      simNodesRef.current.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
+    );
+    for (const n of simNodesRef.current) {
+      if (n.kind === 'field' || n.relDx === undefined || n.relDy === undefined) continue;
+      const f = fields.get(n.fieldId);
+      if (!f) continue;
+      n.relDx = n.x - f.x;
+      n.relDy = n.y - f.y;
+    }
+  }, []);
+
   useEffect(() => {
     simRef.current?.stop();
     const { simNodes, fieldNodes, fieldLinks } = buildForceGraph(nodes, edges);
     simNodesRef.current = simNodes;
     dragOriginsRef.current.clear();
+    dragFollowOffsetsRef.current.clear();
+    dragPrimaryIdRef.current = null;
     isDraggingRef.current = false;
 
     publishLayout();
@@ -80,14 +100,34 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
   const beginDragGroup = useCallback(
     (target: DragTarget) => {
-      const ids = simNodeIdsForDragTarget(target, simNodesRef.current);
+      const simNodes = simNodesRef.current;
+      const primaryIds = primarySimNodeIdsForDragTarget(target);
+      const groupIds = simNodeIdsForDragTarget(target, simNodes);
+      const primaryId = primaryIds[0] ?? null;
+      dragPrimaryIdRef.current = primaryId;
+
       const origins = new Map<string, { x: number; y: number }>();
-      for (const id of ids) {
-        const n = simNodesRef.current.find((sn) => sn.id === id);
+      for (const id of groupIds) {
+        const n = simNodes.find((sn) => sn.id === id);
         if (!n) continue;
         origins.set(id, { x: n.x, y: n.y });
       }
       dragOriginsRef.current = origins;
+
+      const followOffsets = new Map<string, { dx: number; dy: number }>();
+      if (primaryId && (target.kind === 'field' || target.kind === 'subfield')) {
+        const anchor = simNodes.find((sn) => sn.id === primaryId);
+        if (anchor) {
+          for (const id of groupIds) {
+            if (primaryIds.includes(id)) continue;
+            const n = simNodes.find((sn) => sn.id === id);
+            if (!n) continue;
+            followOffsets.set(id, { dx: n.x - anchor.x, dy: n.y - anchor.y });
+          }
+        }
+      }
+      dragFollowOffsetsRef.current = followOffsets;
+
       isDraggingRef.current = true;
       stopSimulation();
     },
@@ -96,29 +136,36 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
   const moveDragGroup = useCallback(
     (target: DragTarget, offsetX: number, offsetY: number) => {
-      const ids = simNodeIdsForDragTarget(target, simNodesRef.current);
-      for (const id of ids) {
-        const n = simNodesRef.current.find((sn) => sn.id === id);
+      const simNodes = simNodesRef.current;
+      const primaryIds = primarySimNodeIdsForDragTarget(target);
+      const primaryId = dragPrimaryIdRef.current;
+
+      for (const id of primaryIds) {
+        const n = simNodes.find((sn) => sn.id === id);
         const orig = dragOriginsRef.current.get(id);
         if (!n || !orig) continue;
         n.fx = orig.x + offsetX;
         n.fy = orig.y + offsetY;
         n.x = n.fx;
         n.y = n.fy;
-        if (n.kind === 'field') {
-          for (const child of simNodesRef.current) {
-            if (child.fieldId !== n.fieldId || child.kind === 'field') continue;
-            if (child.relDx !== undefined && child.relDy !== undefined) {
-              child.x = n.x + child.relDx;
-              child.y = n.y + child.relDy;
-            }
-          }
+      }
+
+      const anchor = primaryId ? simNodes.find((sn) => sn.id === primaryId) : null;
+      if (anchor && dragFollowOffsetsRef.current.size > 0) {
+        for (const [id, off] of dragFollowOffsetsRef.current) {
+          const n = simNodes.find((sn) => sn.id === id);
+          if (!n) continue;
+          const tx = anchor.x + off.dx;
+          const ty = anchor.y + off.dy;
+          n.x += (tx - n.x) * CHILD_FOLLOW_SPRING;
+          n.y += (ty - n.y) * CHILD_FOLLOW_SPRING;
         }
       }
-      syncChildrenToFields(simNodesRef.current);
+
+      syncRelOffsetsFromField();
       publishLayout();
     },
-    [publishLayout],
+    [publishLayout, syncRelOffsetsFromField],
   );
 
   const endDragGroup = useCallback(() => {
@@ -151,6 +198,8 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       }
     }
     dragOriginsRef.current.clear();
+    dragFollowOffsetsRef.current.clear();
+    dragPrimaryIdRef.current = null;
     isDraggingRef.current = false;
     syncChildrenToFields(simNodesRef.current);
     publishLayout();
