@@ -341,6 +341,10 @@ html, body, #root {
   cursor: crosshair;
 }
 
+.circle-map-wrap.is-tension-settling .map-edge-group.tension .map-edge {
+  transition: stroke-opacity 0.15s ease;
+}
+
 .circle-item circle {
   transition:
     fill-opacity 0.22s ease,

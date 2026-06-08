@@ -8,7 +8,15 @@ import {
 import type { MapEdge, MapNode } from '../types';
 import { isTagEdgeId } from './layout';
 
-const TENSION_ITERATIONS = 16;
+const TENSION_SUBSTEPS = 6;
+const TENSION_DAMPING = 0.76;
+const TENSION_SETTLE_THRESHOLD = 0.12;
+
+const SPRING_K = {
+  sameSubfield: 0.85,
+  sameField: 0.55,
+  crossField: 0.32,
+} as const;
 import {
   computeCircleLayout,
   getSubfieldLabel,
@@ -258,65 +266,150 @@ export function simNodeIdsForDragTarget(
   }
 }
 
-/** Pull linked concepts toward the dragged node (shift-drag tension). */
-export function applyConnectionTension(
+function clampConceptInField(n: ForceSimNode, fields: Map<string, ForceSimNode>): void {
+  const f = fields.get(n.fieldId);
+  if (!f) return;
+  let dx = n.x - f.x;
+  let dy = n.y - f.y;
+  const dist = Math.hypot(dx, dy);
+  const maxD = Math.max(f.r - n.r - 5, 8);
+  if (dist > maxD && dist > 0) {
+    dx = (dx / dist) * maxD;
+    dy = (dy / dist) * maxD;
+    n.x = f.x + dx;
+    n.y = f.y + dy;
+  }
+}
+
+function collectTensionAffected(
+  anchorId: string | null,
+  edges: MapEdge[],
+  byId: Map<string, ForceSimNode>,
+  velocities: Map<string, { vx: number; vy: number }>,
+): Set<string> {
+  const affected = new Set<string>();
+  if (anchorId) {
+    affected.add(anchorId);
+    for (const edge of edges) {
+      if (isTagEdgeId(edge.id)) continue;
+      if (edge.source === anchorId) affected.add(edge.target);
+      if (edge.target === anchorId) affected.add(edge.source);
+    }
+    return affected;
+  }
+
+  for (const id of velocities.keys()) {
+    if (byId.has(id)) affected.add(id);
+  }
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const edge of edges) {
+      if (isTagEdgeId(edge.id)) continue;
+      if (!byId.has(edge.source) || !byId.has(edge.target)) continue;
+      const touches = affected.has(edge.source) || affected.has(edge.target);
+      if (!touches) continue;
+      const before = affected.size;
+      affected.add(edge.source);
+      affected.add(edge.target);
+      if (affected.size > before) grew = true;
+    }
+  }
+  return affected;
+}
+
+function springIdeal(
+  a: ForceSimNode,
+  b: ForceSimNode,
+  nodes: MapNode[],
+  w: number,
+): { ideal: number; k: number } {
+  const na = nodes.find((n) => n.id === a.id);
+  const nb = nodes.find((n) => n.id === b.id);
+  const crossField = na?.parentId !== nb?.parentId;
+  const sameSubfield = a.subfieldKey === b.subfieldKey && a.fieldId === b.fieldId;
+  const k = crossField
+    ? SPRING_K.crossField
+    : sameSubfield
+      ? SPRING_K.sameSubfield
+      : SPRING_K.sameField;
+  const ideal = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
+  return { ideal, k };
+}
+
+/**
+ * Velocity-based link springs. anchorId = dragged concept (fixed); null = free release oscillation.
+ * Returns true while motion is still visible.
+ */
+export function stepTensionSprings(
   simNodes: ForceSimNode[],
-  draggedConceptId: string,
+  anchorId: string | null,
   edges: MapEdge[],
   nodes: MapNode[],
-): void {
+  velocities: Map<string, { vx: number; vy: number }>,
+  substeps = TENSION_SUBSTEPS,
+): boolean {
   const concepts = simNodes.filter((n) => n.kind === 'concept');
   const byId = new Map(concepts.map((n) => [n.id, n]));
-  const dragged = byId.get(draggedConceptId);
-  if (!dragged) return;
-
   const fields = new Map(
     simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
   );
+  const affected = collectTensionAffected(anchorId, edges, byId, velocities);
+  if (affected.size === 0) return false;
 
-  const clampInField = (n: ForceSimNode) => {
-    if (n.id === draggedConceptId || n.mapNode.pinned) return;
-    const f = fields.get(n.fieldId);
-    if (!f) return;
-    let dx = n.x - f.x;
-    let dy = n.y - f.y;
-    const dist = Math.hypot(dx, dy);
-    const maxD = Math.max(f.r - n.r - 5, 8);
-    if (dist > maxD && dist > 0) {
-      dx = (dx / dist) * maxD;
-      dy = (dy / dist) * maxD;
-      n.x = f.x + dx;
-      n.y = f.y + dy;
-    }
-  };
+  let maxSpeed = 0;
 
-  for (let iter = 0; iter < TENSION_ITERATIONS; iter++) {
+  for (let step = 0; step < substeps; step++) {
+    const forces = new Map<string, { fx: number; fy: number }>();
+    for (const id of affected) forces.set(id, { fx: 0, fy: 0 });
+
     for (const edge of edges) {
       if (isTagEdgeId(edge.id)) continue;
-      if (edge.source !== draggedConceptId && edge.target !== draggedConceptId) continue;
+      const a = byId.get(edge.source);
+      const b = byId.get(edge.target);
+      if (!a || !b) continue;
+      if (!affected.has(a.id) || !affected.has(b.id)) continue;
+      if (anchorId && edge.source !== anchorId && edge.target !== anchorId) continue;
 
-      const otherId = edge.source === draggedConceptId ? edge.target : edge.source;
-      const other = byId.get(otherId);
-      if (!other || other.mapNode.pinned) continue;
-
-      const na = nodes.find((n) => n.id === draggedConceptId);
-      const nb = nodes.find((n) => n.id === otherId);
-      const crossField = na?.parentId !== nb?.parentId;
-      const sameSubfield =
-        dragged.subfieldKey === other.subfieldKey && dragged.fieldId === other.fieldId;
       const w = edge.weight ?? 1;
-
-      const dx = dragged.x - other.x;
-      const dy = dragged.y - other.y;
+      const { ideal, k } = springIdeal(a, b, nodes, w);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
       const dist = Math.hypot(dx, dy) || 1;
-      const ideal = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
-      const strength = crossField ? 0.14 : sameSubfield ? 0.32 : 0.2;
-      const pull = (dist - ideal) * strength * w;
-      other.x += (dx / dist) * pull;
-      other.y += (dy / dist) * pull;
+      const stretch = dist - ideal;
+      const mag = k * stretch * w;
+      const fx = (dx / dist) * mag;
+      const fy = (dy / dist) * mag;
+
+      forces.get(a.id)!.fx += fx;
+      forces.get(a.id)!.fy += fy;
+      forces.get(b.id)!.fx -= fx;
+      forces.get(b.id)!.fy -= fy;
     }
-    for (const n of concepts) clampInField(n);
+
+    for (const id of affected) {
+      const n = byId.get(id);
+      if (!n || n.mapNode.pinned) continue;
+
+      if (anchorId === id) {
+        velocities.set(id, { vx: 0, vy: 0 });
+        continue;
+      }
+
+      const f = forces.get(id) ?? { fx: 0, fy: 0 };
+      const v = velocities.get(id) ?? { vx: 0, vy: 0 };
+      v.vx = (v.vx + f.fx) * TENSION_DAMPING;
+      v.vy = (v.vy + f.fy) * TENSION_DAMPING;
+      velocities.set(id, v);
+
+      n.x += v.vx;
+      n.y += v.vy;
+      clampConceptInField(n, fields);
+      maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
+    }
   }
+
+  return maxSpeed > TENSION_SETTLE_THRESHOLD;
 }
 
 /** Clamp a circle inside a field for overview decor display */

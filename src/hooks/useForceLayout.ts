@@ -5,12 +5,12 @@ import type { MapEdge, MapNode } from '../types';
 import type { DragTarget } from '../utils/dragTarget';
 import type { CircleItem } from '../utils/circleLayout';
 import {
-  applyConnectionTension,
   buildForceGraph,
   createFieldSimulation,
   primarySimNodeIdsForDragTarget,
   simNodeIdsForDragTarget,
   simNodesToCircleItems,
+  stepTensionSprings,
   syncChildrenToFields,
   zeroVelocities,
   type ForceSimNode,
@@ -21,6 +21,13 @@ export interface MoveDragOptions {
   tensionLinks?: boolean;
 }
 
+export interface EndDragOptions {
+  /** Run spring settle after releasing a concept. */
+  releaseTension?: boolean;
+  releaseVelocity?: { vx: number; vy: number };
+  onSettled?: () => void;
+}
+
 const ENTRY_ALPHA = 0.38;
 /** How quickly children catch up when dragging a field or subfield (0–1 per move). */
 const CHILD_FOLLOW_SPRING = 0.48;
@@ -28,12 +35,16 @@ const CHILD_FOLLOW_SPRING = 0.48;
 export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const [layout, setLayout] = useState<CircleItem[]>([]);
   const [isSettling, setIsSettling] = useState(false);
+  const [isTensionSettling, setIsTensionSettling] = useState(false);
   const simRef = useRef<Simulation<ForceSimNode, SimLink> | null>(null);
   const simNodesRef = useRef<ForceSimNode[]>([]);
   const dragOriginsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const dragFollowOffsetsRef = useRef<Map<string, { dx: number; dy: number }>>(new Map());
   const dragPrimaryIdRef = useRef<string | null>(null);
+  const tensionVelocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
+  const tensionRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
+  const isTensionSettlingRef = useRef(false);
 
   const graphKey = `${nodes.length}:${edges.length}:${nodes.map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.pinned}`).join(';')}`;
 
@@ -48,6 +59,15 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     sim.stop();
     zeroVelocities(simNodesRef.current);
     setIsSettling(false);
+  }, []);
+
+  const cancelTensionSettle = useCallback(() => {
+    if (tensionRafRef.current !== null) {
+      cancelAnimationFrame(tensionRafRef.current);
+      tensionRafRef.current = null;
+    }
+    isTensionSettlingRef.current = false;
+    setIsTensionSettling(false);
   }, []);
 
   const reheat = useCallback((alpha = 0.32) => {
@@ -70,19 +90,65 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     }
   }, []);
 
+  const runTensionSettle = useCallback(
+    (conceptId: string, releaseVelocity: { vx: number; vy: number }, onSettled?: () => void) => {
+      cancelTensionSettle();
+      const velocities = tensionVelocitiesRef.current;
+      const existing = velocities.get(conceptId) ?? { vx: 0, vy: 0 };
+      velocities.set(conceptId, {
+        vx: existing.vx + releaseVelocity.vx,
+        vy: existing.vy + releaseVelocity.vy,
+      });
+
+      isTensionSettlingRef.current = true;
+      setIsTensionSettling(true);
+
+      const tick = () => {
+        const moving = stepTensionSprings(
+          simNodesRef.current,
+          null,
+          edges,
+          nodes,
+          velocities,
+        );
+        syncRelOffsetsFromField();
+        publishLayout();
+
+        if (moving) {
+          tensionRafRef.current = requestAnimationFrame(tick);
+        } else {
+          tensionRafRef.current = null;
+          velocities.clear();
+          isTensionSettlingRef.current = false;
+          setIsTensionSettling(false);
+          syncChildrenToFields(simNodesRef.current);
+          publishLayout();
+          reheat(0.22);
+          onSettled?.();
+        }
+      };
+
+      tensionRafRef.current = requestAnimationFrame(tick);
+    },
+    [cancelTensionSettle, edges, nodes, publishLayout, reheat, syncRelOffsetsFromField],
+  );
+
   useEffect(() => {
+    cancelTensionSettle();
     simRef.current?.stop();
     const { simNodes, fieldNodes, fieldLinks } = buildForceGraph(nodes, edges);
     simNodesRef.current = simNodes;
     dragOriginsRef.current.clear();
     dragFollowOffsetsRef.current.clear();
     dragPrimaryIdRef.current = null;
+    tensionVelocitiesRef.current.clear();
     isDraggingRef.current = false;
 
     publishLayout();
 
     const sim = createFieldSimulation(fieldNodes, fieldLinks);
     sim.on('tick', () => {
+      if (isDraggingRef.current || isTensionSettlingRef.current) return;
       syncChildrenToFields(simNodesRef.current);
       publishLayout();
     });
@@ -98,14 +164,16 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     simRef.current = sim;
 
     return () => {
+      cancelTensionSettle();
       sim.stop();
       simRef.current = null;
       setIsSettling(false);
     };
-  }, [graphKey, nodes, edges, publishLayout]);
+  }, [graphKey, nodes, edges, publishLayout, cancelTensionSettle]);
 
   const beginDragGroup = useCallback(
     (target: DragTarget) => {
+      cancelTensionSettle();
       const simNodes = simNodesRef.current;
       const primaryIds = primarySimNodeIdsForDragTarget(target);
       const groupIds = simNodeIdsForDragTarget(target, simNodes);
@@ -119,6 +187,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
         origins.set(id, { x: n.x, y: n.y });
       }
       dragOriginsRef.current = origins;
+      tensionVelocitiesRef.current.clear();
 
       const followOffsets = new Map<string, { dx: number; dy: number }>();
       if (primaryId && (target.kind === 'field' || target.kind === 'subfield')) {
@@ -137,7 +206,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       isDraggingRef.current = true;
       stopSimulation();
     },
-    [stopSimulation],
+    [cancelTensionSettle, stopSimulation],
   );
 
   const moveDragGroup = useCallback(
@@ -169,7 +238,13 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       }
 
       if (options?.tensionLinks && target.kind === 'concept') {
-        applyConnectionTension(simNodes, target.nodeId, edges, nodes);
+        stepTensionSprings(
+          simNodes,
+          target.nodeId,
+          edges,
+          nodes,
+          tensionVelocitiesRef.current,
+        );
       }
 
       syncRelOffsetsFromField();
@@ -178,47 +253,69 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     [edges, nodes, publishLayout, syncRelOffsetsFromField],
   );
 
-  const endDragGroup = useCallback(() => {
-    const fields = new Map(
-      simNodesRef.current.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-    );
+  const endDragGroup = useCallback(
+    (target: DragTarget | null, options?: EndDragOptions) => {
+      const fields = new Map(
+        simNodesRef.current.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
+      );
 
-    for (const n of simNodesRef.current) {
-      const pinned =
-        n.mapNode.pinned &&
-        (n.mapNode.position.x !== 0 || n.mapNode.position.y !== 0);
-      if (pinned) {
-        const px = n.mapNode.position.x;
-        const py = n.mapNode.position.y;
-        n.fx = px;
-        n.fy = py;
-        n.x = px;
-        n.y = py;
-      } else {
-        n.fx = null;
-        n.fy = null;
-      }
+      for (const n of simNodesRef.current) {
+        const pinned =
+          n.mapNode.pinned &&
+          (n.mapNode.position.x !== 0 || n.mapNode.position.y !== 0);
+        if (pinned) {
+          const px = n.mapNode.position.x;
+          const py = n.mapNode.position.y;
+          n.fx = px;
+          n.fy = py;
+          n.x = px;
+          n.y = py;
+        } else {
+          n.fx = null;
+          n.fy = null;
+        }
 
-      if (n.kind !== 'field' && n.relDx !== undefined && n.relDy !== undefined) {
-        const f = fields.get(n.fieldId);
-        if (f) {
-          n.relDx = n.x - f.x;
-          n.relDy = n.y - f.y;
+        if (n.kind !== 'field' && n.relDx !== undefined && n.relDy !== undefined) {
+          const f = fields.get(n.fieldId);
+          if (f) {
+            n.relDx = n.x - f.x;
+            n.relDy = n.y - f.y;
+          }
         }
       }
-    }
-    dragOriginsRef.current.clear();
-    dragFollowOffsetsRef.current.clear();
-    dragPrimaryIdRef.current = null;
-    isDraggingRef.current = false;
-    syncChildrenToFields(simNodesRef.current);
-    publishLayout();
-    reheat(0.28);
-  }, [publishLayout, reheat]);
+
+      dragOriginsRef.current.clear();
+      dragFollowOffsetsRef.current.clear();
+      dragPrimaryIdRef.current = null;
+      isDraggingRef.current = false;
+
+      const releaseTension =
+        options?.releaseTension && target?.kind === 'concept';
+
+      if (releaseTension) {
+        syncRelOffsetsFromField();
+        publishLayout();
+        runTensionSettle(
+          target.nodeId,
+          options.releaseVelocity ?? { vx: 0, vy: 0 },
+          options.onSettled,
+        );
+        return;
+      }
+
+      tensionVelocitiesRef.current.clear();
+      syncChildrenToFields(simNodesRef.current);
+      publishLayout();
+      reheat(0.28);
+      options?.onSettled?.();
+    },
+    [publishLayout, reheat, runTensionSettle, syncRelOffsetsFromField],
+  );
 
   return {
     layout,
     isSettling,
+    isTensionSettling,
     beginDragGroup,
     moveDragGroup,
     endDragGroup,

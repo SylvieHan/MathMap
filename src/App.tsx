@@ -131,7 +131,7 @@ function App() {
 
       {showOnboarding && (
         <div className="onboarding-banner">
-          Click any circle — its <strong>table of contents</strong> opens in the side panel. <strong>Drag</strong> to pan the map. <strong>Shift+drag</strong> a circle to move it; connected concepts pull on elastic links.
+          Click any circle — its <strong>table of contents</strong> opens in the side panel. <strong>Drag</strong> to pan. <strong>Shift+drag</strong> a concept — linked circles stretch and spring back with momentum when you release.
         </div>
       )}
 

@@ -50,6 +50,11 @@ type DragState = {
   lastPanX?: number;
   lastPanY?: number;
   lastPanT?: number;
+  lastOffsetX?: number;
+  lastOffsetY?: number;
+  lastMoveT?: number;
+  releaseVx?: number;
+  releaseVy?: number;
 };
 
 const LEVEL_LABELS: Record<DetailLevel, string> = {
@@ -133,7 +138,8 @@ export function CircleMapCanvas({
     transformRef.current = transform;
   }, [transform]);
 
-  const { layout, isSettling, beginDragGroup, moveDragGroup, endDragGroup } = useForceLayout(nodes, edges);
+  const { layout, isSettling, isTensionSettling, beginDragGroup, moveDragGroup, endDragGroup } =
+    useForceLayout(nodes, edges);
   const level = zoomToDetailLevel(transform.k);
 
   const showItem = useCallback(
@@ -661,6 +667,16 @@ export function CircleMapCanvas({
         const world = clientToWorld(e.clientX, e.clientY, rect, transformRef.current);
         const offsetX = world.x - d.grabOx - d.anchorX;
         const offsetY = world.y - d.grabOy - d.anchorY;
+        const now = performance.now();
+        const prevT = d.lastMoveT ?? now;
+        const dt = Math.max(1, now - prevT);
+        const prevOx = d.lastOffsetX ?? offsetX;
+        const prevOy = d.lastOffsetY ?? offsetY;
+        d.releaseVx = ((offsetX - prevOx) / dt) * 16;
+        d.releaseVy = ((offsetY - prevOy) / dt) * 16;
+        d.lastOffsetX = offsetX;
+        d.lastOffsetY = offsetY;
+        d.lastMoveT = now;
         moveDragGroup(d.dragTarget, offsetX, offsetY, {
           tensionLinks: d.dragTarget.kind === 'concept',
         });
@@ -711,9 +727,17 @@ export function CircleMapCanvas({
         d.grabOy !== undefined &&
         svgRef.current
       ) {
-        endDragGroup();
-        setTensionTarget(null);
+        const isConceptTension = d.dragTarget.kind === 'concept';
         setIsForceDragging(false);
+        endDragGroup(d.dragTarget, {
+          releaseTension: isConceptTension,
+          releaseVelocity: {
+            vx: (d.releaseVx ?? 0) * 2.4,
+            vy: (d.releaseVy ?? 0) * 2.4,
+          },
+          onSettled: () => setTensionTarget(null),
+        });
+        if (!isConceptTension) setTensionTarget(null);
       } else if (d.mode === 'pan') {
         const elapsed = Math.max(1, performance.now() - (d.lastPanT ?? performance.now()));
         const vx = ((e.clientX - (d.lastPanX ?? e.clientX)) / elapsed) * 16;
@@ -753,9 +777,17 @@ export function CircleMapCanvas({
       d.grabOy !== undefined &&
       svgRef.current
     ) {
-      endDragGroup();
-      setTensionTarget(null);
+      const isConceptTension = d.dragTarget.kind === 'concept';
       setIsForceDragging(false);
+      endDragGroup(d.dragTarget, {
+        releaseTension: isConceptTension,
+        releaseVelocity: {
+          vx: (d.releaseVx ?? 0) * 2.4,
+          vy: (d.releaseVy ?? 0) * 2.4,
+        },
+        onSettled: () => setTensionTarget(null),
+      });
+      if (!isConceptTension) setTensionTarget(null);
     }
     if (dragRef.current) {
       dragRef.current = null;
@@ -815,8 +847,9 @@ export function CircleMapCanvas({
   };
 
   const isHovered = (item: CircleItem) => hoverTip?.id === item.id;
+  const tensionActive = !!tensionTarget && (isForceDragging || isTensionSettling);
   const isDragging = (item: CircleItem) =>
-    isForceDragging && !!tensionTarget && itemMatchesDragTarget(item, tensionTarget);
+    tensionActive && itemMatchesDragTarget(item, tensionTarget!);
 
   const renderLayers = useMemo(() => {
     const backgroundFields: CircleItem[] = [];
@@ -1035,7 +1068,7 @@ export function CircleMapCanvas({
   return (
     <div
       ref={wrapRef}
-      className={`circle-map-wrap${drill.fieldId ? ' is-drilled' : ' is-overview'}${tensionTarget ? ' is-tension' : ''}${isForceDragging ? ' is-force-dragging' : ''}${isSettling ? ' is-settling' : ''}`}
+      className={`circle-map-wrap${drill.fieldId ? ' is-drilled' : ' is-overview'}${tensionActive ? ' is-tension' : ''}${isForceDragging ? ' is-force-dragging' : ''}${isTensionSettling ? ' is-tension-settling' : ''}${isSettling ? ' is-settling' : ''}`}
     >
       <div className="zoom-hud">
         <button type="button" onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</button>
@@ -1078,7 +1111,7 @@ export function CircleMapCanvas({
 
       <svg
         ref={svgRef}
-        className={`circle-map-svg${isPanning ? ' is-panning' : ''}${hoverEdgeId ? ' edge-hover' : ''}${isCameraAnimating ? ' is-camera-animating' : ''}${tensionTarget ? ' is-tension' : ''}`}
+        className={`circle-map-svg${isPanning ? ' is-panning' : ''}${hoverEdgeId ? ' edge-hover' : ''}${isCameraAnimating ? ' is-camera-animating' : ''}${tensionActive ? ' is-tension' : ''}`}
         width={size.w}
         height={size.h}
         onPointerDown={handlePointerDown}
