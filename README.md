@@ -130,7 +130,3 @@ src/
 public/
   bundled-map.json  # full read-only map (generated from richSeed at build)
 ```
-
-## License
-
-MIT — use freely.
