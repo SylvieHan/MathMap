@@ -2,7 +2,22 @@
 
 A personal, interactive 2D map for visualizing how mathematical concepts connect — how fields relate, how concepts bridge fields, and how ideas cluster together. Fully static, free to run and host, with all data stored locally in your browser.
 
+**New here?** Read **[GETTING-STARTED.md](./GETTING-STARTED.md)** — install, double-click launchers (Windows / macOS / Linux), create a map, save `.mathmap` files, and import them back.
+
+**View-only website:** [sylviehan.github.io/MathMap](https://sylviehan.github.io/MathMap/) (no install).  
+**Publish your own site:** [PUBLISH.md](./PUBLISH.md).
+
 ## Quick start
+
+**Double-click launcher (easiest):**
+
+| System | File |
+|--------|------|
+| macOS | `Start MathMap.command` |
+| Windows | `start-mathmap.bat` |
+| Linux | `./start-mathmap.sh` |
+
+**Or use the terminal:**
 
 ```bash
 npm install
@@ -26,16 +41,15 @@ Open [http://localhost:5173](http://localhost:5173). The app works offline after
 
 ## How to use
 
-1. **Explore the seed map** — on first open you get 8 concepts across Number Theory, Algebraic Geometry, and Probability.
-2. **Add nodes** — use **+ Concept** or **+ Folder** in the toolbar.
-3. **Edit a node** — click its title on the canvas; the side panel opens for content and tags.
-4. **Tag nodes** — search MSC2020 codes (e.g. `11`, `14A`, `60J`) or add custom tags. Shared tags pull nodes together during layout and color nodes by primary MSC field.
-5. **Draw links** — select a node → **Link from here** → click the target node.
-6. **Pin nodes** — double-click a node (or use **Pin node** in the panel) so it stays put during re-layout.
-7. **Re-layout** — click **Re-layout** to re-flow unpinned nodes.
-8. **Search** — type in the search bar to highlight matching nodes.
-9. **Export** — **Export** downloads a `.mathmap` file you can share.
-10. **Import** — **Import** loads a `.mathmap`; choose merge (OK) or replace (Cancel).
+See **[GETTING-STARTED.md](./GETTING-STARTED.md)** for the full walkthrough. Short version:
+
+1. **Launch** — double-click `Start MathMap.command` (Mac) or `start-mathmap.bat` (Windows), or run `npm run dev`.
+2. **New blank map** — toolbar **New map**.
+3. **Save a file** — **Export** → downloads `YourTitle.mathmap`.
+4. **Open a file** — **Import** → pick a `.mathmap` file (OK = merge, Cancel = replace).
+5. **Add nodes** — **+ Concept** or **+ Folder**; click circles to edit in the side panel.
+6. **Connect** — select a node → **Link from here** → click target.
+7. **Search** — toolbar search bar.
 
 ### Field folders
 

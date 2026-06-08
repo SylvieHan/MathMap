@@ -26,6 +26,7 @@ function App() {
     addEdge,
     handleExport,
     handleImport,
+    resetToEmpty,
     relayout,
     updateEdge,
   } = useMap();
@@ -75,6 +76,17 @@ function App() {
         onTitleChange={updateMeta}
         onAddConcept={() => addNode('concept')}
         onAddFolder={() => addNode('field-folder')}
+        onNewMap={() => {
+          if (
+            window.confirm(
+              'Start a new blank map?\n\nUnsaved work in this browser will be replaced. Export first if you need a backup.',
+            )
+          ) {
+            resetToEmpty();
+            setSelection(null);
+            setDrill(EMPTY_DRILL);
+          }
+        }}
         onRelayout={relayout}
         onExport={handleExport}
         onImport={handleImport}

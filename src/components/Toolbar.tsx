@@ -8,6 +8,7 @@ interface ToolbarProps {
   onTitleChange: (title: string) => void;
   onAddConcept: () => void;
   onAddFolder: () => void;
+  onNewMap: () => void;
   onRelayout: () => void;
   onExport: () => void;
   onImport: (file: File, mode: 'replace' | 'merge') => void;
@@ -26,6 +27,7 @@ export function Toolbar({
   onTitleChange,
   onAddConcept,
   onAddFolder,
+  onNewMap,
   onRelayout,
   onExport,
   onImport,
@@ -64,6 +66,9 @@ export function Toolbar({
       <div className="toolbar-right">
         {!readOnly && (
           <>
+            <button type="button" onClick={onNewMap} title="Start a blank map">
+              New map
+            </button>
             <button type="button" onClick={onAddConcept} title="Add concept node">+ Concept</button>
             <button type="button" onClick={onAddFolder} title="Add field folder">+ Folder</button>
             <button type="button" onClick={onRelayout} title="Re-pack circles for unpinned nodes">
