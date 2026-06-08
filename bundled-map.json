@@ -1,0 +1,2419 @@
+{
+  "meta": {
+    "title": "My MathMap",
+    "author": "",
+    "createdAt": "2026-06-08T04:30:19.475Z",
+    "seedVersion": 5,
+    "latexPackages": [
+      "amsmath",
+      "amssymb"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "fld-nt",
+      "title": "Number Theory",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "11"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Arithmetic questions on integers date to antiquity (Euclid, Diophantus). Modern number theory emerged with Gauss's *Disquisitiones Arithmeticae* (1801), linking congruences, quadratic forms, and cyclotomy.\n\n**Landmarks:** Riemann's memoir on $\\zeta(s)$ (1859); Hilbert's problems; the Langlands program; Wiles's proof of Fermat's Last Theorem (1995).\n\n**References:** Hardy & Wright, *An Introduction to the Theory of Numbers*; Ireland & Rosen; Serre, *A Course in Arithmetic*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "primes",
+      "title": "Prime Numbers",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11A"
+      ],
+      "customTags": [
+        "fundamental"
+      ],
+      "definition": "A **prime** is a natural number $p > 1$ whose only positive divisors are $1$ and $p$. Equivalently, $p$ cannot be written as $ab$ with $1 < a, b < p$. The primes are the multiplicative building blocks of $\\mathbb{Z}$: every integer $n \\ge 2$ factors uniquely into primes (fundamental theorem of arithmetic).",
+      "historyAndReferences": "**Euclid (~300 BCE)** proved infinitely many primes. **Euler (1737)** introduced $\\zeta(s) = \\sum n^{-s}$ and the Euler product $\\prod_p (1-p^{-s})^{-1}$. **Hadamard & de la Vallée Poussin (1896)** proved the Prime Number Theorem.\n\n**References:** Hardy & Wright Ch. 1–3; Ribenboim, *The Book of Prime Number Records*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "primes-note",
+          "type": "text",
+          "markdown": "Primality testing (Miller–Rabin, AKS) and prime distribution (Prime Number Theorem, Riemann Hypothesis) connect arithmetic to analysis and cryptography."
+        }
+      ]
+    },
+    {
+      "id": "modarith",
+      "title": "Modular Arithmetic",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11A"
+      ],
+      "customTags": [
+        "algebra"
+      ],
+      "definition": "Fix a modulus $n \\ge 2$. **Modular arithmetic** identifies integers that differ by a multiple of $n$, forming residue classes $\\mathbb{Z}/n\\mathbb{Z}$. Addition and multiplication descend to well-defined operations; one studies congruences $a \\equiv b \\pmod{n}$ and invertibility modulo $n$ (when $\\gcd(a,n)=1$).",
+      "historyAndReferences": "**Gauss (1801)** systematized congruences in *Disquisitiones Arithmeticae*. **Euler** stated Fermat's little theorem and Wilson's theorem. Modern **RSA (1977)** encrypts using exponentiation in $(\\mathbb{Z}/n\\mathbb{Z})^\\times$.\n\n**References:** Gauss, *Disquisitiones*; Silverman, *A Friendly Introduction to Number Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "modarith-note",
+          "type": "text",
+          "markdown": "Quadratic reciprocity, primitive roots, and the Chinese remainder theorem organize computations modulo composite moduli."
+        }
+      ]
+    },
+    {
+      "id": "dioph",
+      "title": "Diophantine Equations",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11D"
+      ],
+      "customTags": [],
+      "definition": "A **Diophantine equation** is a polynomial equation (often in several variables) for which only integer or rational solutions are sought—named after Diophantus of Alexandria. Examples range from linear systems and Pell's equation $x^2 - Dy^2 = 1$ to the general problem of deciding solvability (Hilbert's tenth problem, undecidable).",
+      "historyAndReferences": "**Diophantus (~250 CE)** wrote *Arithmetica*; **Fermat** left marginal notes on integer solutions. **Mordell (1922)** conjectured finitely many rational points on curves of genus $\\ge 2$ (proved by Faltings, 1983). **Matiyasevich (1970)** showed Hilbert's tenth problem is undecidable.\n\n**References:** Mordell, *Diophantine Equations*; Hindry & Silverman, *Diophantine Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "dioph-note",
+          "type": "text",
+          "markdown": "Geometry of curves and abelian varieties (Mordell, Faltings) gives finiteness and structure results beyond naive search."
+        }
+      ]
+    },
+    {
+      "id": "modforms",
+      "title": "Modular Forms",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11F"
+      ],
+      "customTags": [
+        "analysis"
+      ],
+      "definition": "A **modular form** of weight $k$ is a holomorphic function $f$ on the upper half-plane $\\mathbb{H}$ satisfying $f(\\gamma z) = (cz+d)^k f(z)$ for all $\\gamma = \\binom{a\\ b}{c\\ d} \\in \\mathrm{SL}_2(\\mathbb{Z})$ (and a growth condition at cusps). Cusp forms vanish at $\\infty$; Eisenstein series provide canonical counterexamples.",
+      "historyAndReferences": "**Klein, Poincaré, Dedekind** developed automorphic functions in the 19th century. **Hecke (1930s)** introduced operators and L-functions. **Taniyama–Shimura–Weil** conjectured elliptic curves arise from modular forms—central to Wiles (1995).\n\n**References:** Diamond & Shurman, *A First Course in Modular Forms*; Serre, *A Course in Arithmetic*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "modforms-note",
+          "type": "text",
+          "markdown": "Hecke operators act on spaces of modular forms; eigenforms encode arithmetic data (L-functions, Galois representations)."
+        }
+      ]
+    },
+    {
+      "id": "algnt",
+      "title": "Algebraic Number Theory",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11R"
+      ],
+      "customTags": [
+        "bridging"
+      ],
+      "definition": "**Algebraic number theory** studies finite extensions $K/\\mathbb{Q}$ (number fields), their rings of integers $\\mathcal{O}_K$, ideals, class groups, and unit groups. It generalizes unique factorization via ideal factorization and connects Galois theory to arithmetic invariants (discriminant, ramification, zeta/L-functions of $K$).",
+      "historyAndReferences": "**Dedekind (1870s)** introduced ideals and factorization in $\\mathcal{O}_K$. **Hilbert**'s *Zahlbericht* (1897) synthesized class field theory. **Artin (1927)** proved the reciprocity law. **Chevalley, Tate** developed modern adelic language.\n\n**References:** Marcus, *Number Fields*; Neukirch, *Algebraic Number Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "algnt-note",
+          "type": "text",
+          "markdown": "Local fields, adeles, and class field theory unify abelian extensions; the Langlands program extends these ideas non-abelianly."
+        }
+      ]
+    },
+    {
+      "id": "riemann-zeta",
+      "title": "Riemann Zeta",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11M"
+      ],
+      "customTags": [
+        "L-functions"
+      ],
+      "definition": "The **Riemann zeta function** is $\\zeta(s) = \\sum_{n=1}^\\infty n^{-s}$ for $\\mathrm{Re}(s) > 1$, analytically continued to $s \\ne 1$ with a simple pole at $s=1$. The **Euler product** $\\zeta(s) = \\prod_p (1 - p^{-s})^{-1}$ links it to primes; its zeros control error terms in the Prime Number Theorem.",
+      "historyAndReferences": "**Euler (1737)** introduced the series and product. **Riemann (1859)** wrote the memoir *Über die Anzahl der Primzahlen* with analytic continuation and the functional equation. **Riemann Hypothesis** stated there has been no proof since.\n\n**References:** Edwards, *Riemann's Zeta Function*; Iwaniec & Kowalski, *Analytic Number Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "riemann-zeta-note",
+          "type": "text",
+          "markdown": "Functional equation, critical strip, and the Riemann Hypothesis (all nontrivial zeros on $\\mathrm{Re}(s)=\\frac{1}{2}$) remain the central open problem in analytic number theory."
+        }
+      ]
+    },
+    {
+      "id": "fermat-last",
+      "title": "Fermat's Last Theorem",
+      "type": "concept",
+      "parentId": "fld-nt",
+      "mscCodes": [
+        "11D",
+        "11G"
+      ],
+      "customTags": [
+        "famous"
+      ],
+      "definition": "**Fermat's Last Theorem** asserts that the equation $x^n + y^n = z^n$ has no positive integer solutions when $n > 2$. Fermat claimed a proof in a 1637 margin note; the statement resisted proof for over 350 years until a proof via elliptic curves and modular forms.",
+      "historyAndReferences": "**Fermat (~1637)** stated the result. **Kummer (1847)** used cyclotomic fields for many exponents. **Wiles (1995)**, with Taylor, proved modularity of semistable elliptic curves, implying FLT. **Ribet (1986)** had reduced FLT to modularity via Frey curves.\n\n**References:** Singh, *Fermat's Enigma*; Cornell, Silverman, Stevens (eds.), *Modular Forms and Fermat's Last Theorem*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#2563eb",
+      "content": [
+        {
+          "id": "fermat-last-note",
+          "type": "text",
+          "markdown": "The proof passes through the Taniyama–Shimura conjecture (modularity of semistable elliptic curves over $\\mathbb{Q}$), Galois representations, and level lowering."
+        }
+      ]
+    },
+    {
+      "id": "fld-ag",
+      "title": "Algebraic Geometry",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "14"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Algebraic geometry studies solutions of polynomial equations as geometric objects. Classical projective geometry (19th c.) met commutative algebra (Noether, Hilbert); **Grothendieck (1960s)** recast the subject via schemes and topoi.\n\n**Landmarks:** Riemann–Roch; Weil conjectures (proved by Deligne); minimal model program; moduli of curves and vector bundles.\n\n**References:** Hartshorne, *Algebraic Geometry*; Vakil, *The Rising Sea*; Mumford, *The Red Book*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "schemes",
+      "title": "Schemes",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14A"
+      ],
+      "customTags": [
+        "foundations"
+      ],
+      "definition": "An **affine scheme** is $\\mathrm{Spec}(R)$ for a commutative ring $R$—its points are prime ideals, structure sheaf $\\mathcal{O}_{\\mathrm{Spec}\\,R}$ remembers $R$. A **scheme** is a locally ringed space locally isomorphic to affine schemes, glued along open subschemes. This framework carries nilpotents, arithmetic (schemes over $\\mathbb{Z}$), and functor-of-points perspectives.",
+      "historyAndReferences": "**Grothendieck & Dieudonné (1960–67)** developed the theory in *Éléments de géométrie algébrique* (EGA). **Serre**'s *FAC* (1955) introduced sheaves on varieties. **Hartshorne (1977)** became the standard graduate text.\n\n**References:** Hartshorne Ch. II–III; Eisenbud & Harris, *The Geometry of Schemes*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "schemes-note",
+          "type": "text",
+          "markdown": "Morphisms of schemes correspond to ring homomorphisms in the opposite direction; fiber products exist and replace intersection theory in many settings."
+        }
+      ]
+    },
+    {
+      "id": "varieties",
+      "title": "Varieties",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14A"
+      ],
+      "customTags": [],
+      "definition": "An **algebraic variety** over a field $k$ is (roughly) a zero locus of polynomials in affine space $\\mathbb{A}^n_k$ or projective space $\\mathbb{P}^n_k$, equipped with the Zariski topology and a structure sheaf of regular functions. Irreducible varieties correspond to prime ideals; dimension, singularities, and morphisms are studied classically before passing to schemes.",
+      "historyAndReferences": "**Hilbert's Nullstellensatz** (1890s) links radical ideals to affine varieties. **Noether** pioneered ideal theory. **Zariski** topologized varieties; **Weil** and **Serre** bridged to modern sheaf methods.\n\n**References:** Shafarevich, *Basic Algebraic Geometry*; Cox, Little, O'Shea, *Ideals, Varieties, and Algorithms*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "varieties-note",
+          "type": "text",
+          "markdown": "Projective varieties are compact (proper) in the Zariski sense; birational maps replace coordinate changes and blow-ups."
+        }
+      ]
+    },
+    {
+      "id": "cohom",
+      "title": "Sheaf Cohomology",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14F"
+      ],
+      "customTags": [
+        "homological"
+      ],
+      "definition": "For a scheme $X$ and sheaf of $\\mathcal{O}_X$-modules $\\mathcal{F}$, **sheaf cohomology** $H^i(X, \\mathcal{F})$ are derived functors of the global sections functor $\\Gamma(X,-)$. They measure failure of local sections to glue globally; $H^1$ classifies extensions, higher $H^i$ enter Riemann–Roch and classification.",
+      "historyAndReferences": "**Leray** introduced sheaves; **Cartan** developed sheaf cohomology on manifolds. **Grothendieck (1957)** defined cohomology of abelian sheaves in Tôhoku; **Serre** used it for algebraic varieties. **Deligne** proved Weil conjectures using $\\ell$-adic cohomology.\n\n**References:** Hartshorne Ch. III; Grothendieck, *Tôhoku*; Milne, *Lectures on Étale Cohomology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "cohom-note",
+          "type": "text",
+          "markdown": "Čech cohomology computes on open covers; for quasi-coherent sheaves on Noetherian schemes, cohomology agrees with derived functors."
+        }
+      ]
+    },
+    {
+      "id": "curves",
+      "title": "Algebraic Curves",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14H"
+      ],
+      "customTags": [],
+      "definition": "An **algebraic curve** is a one-dimensional variety (or scheme of dimension 1). Smooth projective curves over $k$ are classified by genus $g$; divisors, line bundles, and the **Riemann–Roch theorem** relate functions to geometry. Over $\\mathbb{C}$, compact Riemann surfaces are curves of genus $g$.",
+      "historyAndReferences": "**Riemann (1857)** introduced genus and differentials. **Weil, Hasse** developed point-counting over finite fields. **Deligne–Mumford (1969)** compactified $\\mathcal{M}_g$ via stable curves.\n\n**References:** Fulton, *Algebraic Curves*; Arbarello, Cornalba, Griffiths, Harris, *Geometry of Algebraic Curves*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "curves-note",
+          "type": "text",
+          "markdown": "Moduli spaces $\\mathcal{M}_g$ parametrize curves of genus $g$; low-genus cases (0, 1, 2) have explicit models."
+        }
+      ]
+    },
+    {
+      "id": "birational",
+      "title": "Birational Geometry",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14E"
+      ],
+      "customTags": [],
+      "definition": "**Birational geometry** studies varieties up to **birational equivalence**—isomorphism in codimension 1 after blowing up/cutting lower-dimensional subsets. The **minimal model program** seeks canonical representatives; **Mori theory** uses the cone of curves and contractions to classify higher-dimensional varieties.",
+      "historyAndReferences": "**Italian school** (Castelnuovo, Enriques, Severi) classified surfaces. **Mori (1980s)** introduced extremal ray theory. **Birkar, Cascini, Hacon, McKernan (2010)** proved finite generation of canonical rings in characteristic 0.\n\n**References:** Kollár & Mori, *Birational Geometry of Algebraic Varieties*; Debarre, *Higher-Dimensional Algebraic Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "birational-note",
+          "type": "text",
+          "markdown": "The flip theorem and abundance conjecture remain active frontiers; threefolds are largely settled, higher dimensions ongoing."
+        }
+      ]
+    },
+    {
+      "id": "elliptic",
+      "title": "Elliptic Curves",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14H",
+        "11G"
+      ],
+      "customTags": [
+        "bridging"
+      ],
+      "definition": "An **elliptic curve** over a field $k$ is a smooth projective curve of genus 1 with a chosen basepoint $O$, giving a group law via chord-and-tangent on points. Over $\\mathbb{C}$, $E \\cong \\mathbb{C}/\\Lambda$; over $\\mathbb{Q}$, Mordell–Weil gives a finitely generated abelian group of rational points.",
+      "historyAndReferences": "**Weierstrass** parametrized elliptic functions. **Mordell (1922)** and **Weil (1928)** proved finite generation of rational points. **Tate** and **Silverman** systematized heights and BSD conjecture. **Wiles** used modularity of elliptic curves.\n\n**References:** Silverman, *The Arithmetic of Elliptic Curves*; Husemöller, *Elliptic Curves*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "elliptic-note",
+          "type": "text",
+          "markdown": "The $j$-invariant classifies curves over algebraically closed fields; isogenies and Tate modules link to modular forms and cryptography."
+        }
+      ]
+    },
+    {
+      "id": "stacks",
+      "title": "Algebraic Stacks",
+      "type": "concept",
+      "parentId": "fld-ag",
+      "mscCodes": [
+        "14A"
+      ],
+      "customTags": [
+        "advanced"
+      ],
+      "definition": "An **algebraic stack** generalizes schemes to parametrize objects with automorphisms—quotients $[X/G]$ need not be schemes when stabilizers are nontrivial. Deligne–Mumford stacks are étale-locally quotients by finite group actions; Artin stacks allow more general quotients. They host moduli problems (curves, vector bundles, stable maps).",
+      "historyAndReferences": "**Deligne & Mumford (1969)** introduced DM stacks for $\\mathcal{M}_g$. **Artin (1974)** defined Artin stacks via representability of diagonal. **Laumon & Moret-Bailly (2000)** wrote the standard reference.\n\n**References:** Laumon & Moret-Bailly, *Champs algébriques*; Olsson, *Algebraic Spaces and Stacks*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0891b2",
+      "content": [
+        {
+          "id": "stacks-note",
+          "type": "text",
+          "markdown": "The inertia stack records automorphism groups; stacky curves and orbifolds appear in enumerative geometry and physics."
+        }
+      ]
+    },
+    {
+      "id": "fld-prob",
+      "title": "Probability",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "60"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Probability arose from games of chance (Pascal, Fermat, 1654) and was axiomatized by **Kolmogorov (1933)** via measure theory. Stochastic processes model random evolution in time.\n\n**Landmarks:** Law of large numbers; martingales (Doob); Brownian motion (Wiener, Lévy); Itô calculus; ergodic theory (Birkhoff).\n\n**References:** Durrett, *Probability: Theory and Examples*; Billingsley, *Probability and Measure*; Karatzas & Shreve, *Brownian Motion and Stochastic Calculus*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "markov",
+      "title": "Markov Chains",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60J"
+      ],
+      "customTags": [
+        "stochastic"
+      ],
+      "definition": "A **Markov chain** $(X_n)_{n \\ge 0}$ on a state space $S$ satisfies the **Markov property**: $\\mathbb{P}(X_{n+1} \\mid X_n, X_{n-1}, \\ldots) = \\mathbb{P}(X_{n+1} \\mid X_n)$. Transition probabilities $P_{ij} = \\mathbb{P}(X_{n+1}=j \\mid X_n=i)$ form a stochastic matrix (discrete) or kernel (continuous).",
+      "historyAndReferences": "**Markov (1906)** studied chains arising in Russian literature analysis. **Kolmogorov** gave rigorous foundations. **Doob** and **Chung** developed potential theory and limit theorems for chains.\n\n**References:** Norris, *Markov Chains*; Levin, Peres, Wilmer, *Markov Chains and Mixing Times*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "markov-note",
+          "type": "text",
+          "markdown": "Stationary distributions, recurrence/transience, and mixing rates connect to linear algebra and spectral gap questions."
+        }
+      ]
+    },
+    {
+      "id": "randwalk",
+      "title": "Random Walk",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60G"
+      ],
+      "customTags": [
+        "discrete"
+      ],
+      "definition": "A **random walk** is $S_n = X_1 + \\cdots + X_n$ with i.i.d. increments $X_i$ (often mean zero). On $\\mathbb{Z}^d$, recurrence depends on dimension ($d=1,2$ recurrent, $d \\ge 3$ transient). Scaling limits connect to Brownian motion via Donsker's invariance principle.",
+      "historyAndReferences": "**Pólya (1921)** proved recurrence in $d=2$. **Donsker (1951)** proved functional CLT to Brownian motion. **Spitzer**, *Principles of Random Walk*, is a classic.\n\n**References:** Spitzer, *Principles of Random Walk*; Lawler, *Random Walk: A Modern Introduction*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "randwalk-note",
+          "type": "text",
+          "markdown": "Reflection principle, ballot problems, and gambler's ruin are classical tools; on graphs, random walks interact with spectral geometry of the Laplacian."
+        }
+      ]
+    },
+    {
+      "id": "martingale",
+      "title": "Martingales",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60G"
+      ],
+      "customTags": [],
+      "definition": "A **martingale** $(M_n, \\mathcal{F}_n)$ satisfies $\\mathbb{E}[M_{n+1} \\mid \\mathcal{F}_n] = M_n$ (fair game). **Submartingales** grow on average; **supermartingales** shrink. Optional stopping, Doob decomposition, and martingale convergence theorems underpin stochastic analysis and financial mathematics.",
+      "historyAndReferences": "**Lévy** introduced martingales implicitly. **Doob (1953)** systematized the theory in *Stochastic Processes*. **Meyer** developed continuous-time theory and quadratic variation.\n\n**References:** Williams, *Probability with Martingales*; Doob, *Stochastic Processes*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "martingale-note",
+          "type": "text",
+          "markdown": "Uniform integrability and $L^p$ bounds control convergence; martingale CLT generalizes sums of dependent variables."
+        }
+      ]
+    },
+    {
+      "id": "brownian",
+      "title": "Brownian Motion",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60H"
+      ],
+      "customTags": [
+        "continuous"
+      ],
+      "definition": "**Brownian motion** $(B_t)_{t \\ge 0}$ is a continuous stochastic process with $B_0=0$, independent Gaussian increments $B_t - B_s \\sim \\mathcal{N}(0, t-s)$, and continuous paths a.s. It is a Markov process, a martingale, and has quadratic variation $[B]_t = t$.",
+      "historyAndReferences": "**Brown (1827)** observed pollen motion. **Einstein (1905)** and **Smoluchowski** explained it statistically. **Wiener (1923)** constructed continuous paths rigorously. **Lévy** studied fine properties of paths.\n\n**References:** Karatzas & Shreve; Revuz & Yor, *Continuous Martingales and Brownian Motion*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "brownian-note",
+          "type": "text",
+          "markdown": "Paul Lévy's characterization: continuous martingale with $B_0=0$ and $[B]_t = t$. Reflection principle solves hitting-time problems."
+        }
+      ]
+    },
+    {
+      "id": "clt",
+      "title": "Central Limit Theorem",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60F"
+      ],
+      "customTags": [
+        "limit"
+      ],
+      "definition": "The **Central Limit Theorem** states: if $X_i$ are i.i.d. with mean $\\mu$ and variance $\\sigma^2 < \\infty$, then $\\frac{1}{\\sqrt{n}}\\sum_{i=1}^n (X_i - \\mu) \\xrightarrow{d} \\mathcal{N}(0, \\sigma^2)$. Normalized sums become Gaussian regardless of the underlying distribution (under mild conditions).",
+      "historyAndReferences": "**de Moivre (1733)** for binomial counts. **Laplace** and **Gauss** developed error theory. **Lindeberg (1922)** and **Feller** gave modern formulations. **Donsker** proved invariance principle.\n\n**References:** Feller, *An Introduction to Probability Theory* Vol. II; Durrett, *Probability: Theory and Examples*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "clt-note",
+          "type": "text",
+          "markdown": "Lindeberg and Lyapunov conditions weaken independence; functional CLT (Donsker) upgrades to path-space convergence."
+        }
+      ]
+    },
+    {
+      "id": "stochcalc",
+      "title": "Stochastic Calculus",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60H"
+      ],
+      "customTags": [
+        "analysis"
+      ],
+      "definition": "**Stochastic calculus** integrates with respect to Brownian motion via the **Itô integral** $\\int H_s \\, dB_s$, defined as an $L^2$ limit of simple processes. **Itô's lemma** is the chain rule for $f(B_t)$: $df = f'\\,dB + \\frac{1}{2}f''\\,dt$. **SDEs** $dX_t = \\mu\\,dt + \\sigma\\,dB_t$ model dynamics in finance and physics.",
+      "historyAndReferences": "**Itô (1944)** built stochastic integration. **Kunita & Watanabe (1967)** extended theory. **Black–Scholes (1973)** applied SDEs to option pricing. **Karatzas & Shreve** is the standard reference.\n\n**References:** Karatzas & Shreve; Øksendal, *Stochastic Differential Equations*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "stochcalc-note",
+          "type": "text",
+          "markdown": "Stratonovich integral differs by a correction term; semimartingales generalize integrators beyond Brownian motion."
+        }
+      ]
+    },
+    {
+      "id": "ergodic",
+      "title": "Ergodic Theory",
+      "type": "concept",
+      "parentId": "fld-prob",
+      "mscCodes": [
+        "60F",
+        "37A"
+      ],
+      "customTags": [
+        "dynamics"
+      ],
+      "definition": "**Ergodic theory** studies measure-preserving transformations $T: X \\to X$ on probability spaces. A system is **ergodic** if every invariant set has measure 0 or 1; then time averages along orbits equal space averages: $\\frac{1}{n}\\sum_{k=0}^{n-1} f(T^k x) \\to \\int f \\, d\\mu$ a.e.",
+      "historyAndReferences": "**Boltzmann** coined ergodic hypothesis. **Birkhoff (1931)** proved pointwise ergodic theorem. **von Neumann** proved mean ergodic theorem. **Kolmogorov** introduced entropy; **Ornstein** classified Bernoulli shifts.\n\n**References:** Walters, *An Introduction to Ergodic Theory*; Einsiedler & Ward, *Ergodic Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#7e22ce",
+      "content": [
+        {
+          "id": "ergodic-note",
+          "type": "text",
+          "markdown": "Mixing, entropy (Kolmogorov–Sinai), and Oseledets multiplicative ergodic theorem link to chaotic dynamics and random matrix products."
+        }
+      ]
+    },
+    {
+      "id": "fld-analysis",
+      "title": "Analysis & PDEs",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "35"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Calculus (Newton, Leibniz) matured into rigorous analysis (Cauchy, Weierstrass, Riemann). **Lebesgue (1902)** revolutionized integration; **Hilbert, Banach, von Neumann** founded functional analysis. PDEs unify physics and geometry (Laplace, Fourier, Maxwell, Einstein).\n\n**Landmarks:** Spectral theorem; Sobolev spaces (1930s); distributions (Schwartz); elliptic regularity; Nash–Moser techniques.\n\n**References:** Rudin, *Real and Complex Analysis*; Evans, *Partial Differential Equations*; Brezis, *Functional Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#e11d48",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "banach",
+      "title": "Banach Spaces",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "46B"
+      ],
+      "customTags": [
+        "functional"
+      ],
+      "definition": "A **Banach space** is a complete normed vector space $(X, \\|\\cdot\\|)$—every Cauchy sequence converges. Bounded linear operators $T: X \\to Y$ form $\\mathcal{B}(X,Y)$; the Hahn–Banach theorem extends functionals; uniform boundedness and open mapping theorems are pillars of functional analysis.",
+      "historyAndReferences": "**Banach (1922)** wrote *Théorie des opérations linéaires*. **Hilbert** preceded with sequence spaces. **Riesz** and **Hausdorff** developed normed and metric ideas. **Banach–Steinhaus** and **Banach–Alaoglu** are foundational.\n\n**References:** Brezis, *Functional Analysis, Sobolev Spaces and PDEs*; Conway, *A Course in Functional Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0369a1",
+      "content": [
+        {
+          "id": "banach-note",
+          "type": "text",
+          "markdown": "Examples: $L^p$, $C(K)$, sequence spaces $\\ell^p$; dual spaces and weak topologies encode convergence modes."
+        }
+      ]
+    },
+    {
+      "id": "sobolev",
+      "title": "Sobolev Spaces",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "46E",
+        "35A"
+      ],
+      "customTags": [],
+      "definition": "**Sobolev spaces** $W^{k,p}(\\Omega)$ consist of functions (or distributions) on a domain $\\Omega$ whose weak derivatives up to order $k$ lie in $L^p$. Embeddings $W^{k,p} \\hookrightarrow L^q$ or $C^{m,\\alpha}$ control regularity; trace theorems restrict functions to boundaries.",
+      "historyAndReferences": "**Sobolev (1935)** introduced the spaces in the USSR. **Gagliardo–Nirenberg** proved interpolation inequalities. **Morrey** and **Rellich–Kondrachov** proved compact embeddings.\n\n**References:** Adams & Fournier, *Sobolev Spaces*; Evans, *PDE* Ch. 5.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0369a1",
+      "content": [
+        {
+          "id": "sobolev-note",
+          "type": "text",
+          "markdown": "Weak formulations of PDEs seek solutions in $H^1$; Lax–Milgram gives existence for coercive bilinear forms."
+        }
+      ]
+    },
+    {
+      "id": "elliptic-pde",
+      "title": "Elliptic PDEs",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "35J"
+      ],
+      "customTags": [],
+      "definition": "An **elliptic PDE** has no real characteristic directions—e.g. $-\\Delta u = f$ or $Lu = f$ with $L$ uniformly elliptic. Solutions enjoy maximum principles, interior regularity (bootstrapping), and uniqueness under boundary conditions. The Laplace and Poisson equations are prototypical.",
+      "historyAndReferences": "**Laplace (1780s)** studied harmonic functions. **Schauder (1930s)** proved Hölder regularity. **Lax–Milgram (1954)** gave variational existence. **Gilbarg & Trudinger** is the standard reference.\n\n**References:** Gilbarg & Trudinger, *Elliptic PDEs of Second Order*; Jost, *Partial Differential Equations*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#e11d48",
+      "content": [
+        {
+          "id": "elliptic-pde-note",
+          "type": "text",
+          "markdown": "Fredholm alternative governs solvability on compact domains; spectral theory of the Laplacian links to geometry."
+        }
+      ]
+    },
+    {
+      "id": "heat-eqn",
+      "title": "Heat Equation",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "35K"
+      ],
+      "customTags": [
+        "parabolic"
+      ],
+      "definition": "The **heat equation** $\\partial_t u = \\Delta u$ (or $u_t - \\kappa \\Delta u = 0$) is parabolic: information diffuses infinitely fast but smooths instantly. On $\\mathbb{R}^n$, the fundamental solution is the Gaussian heat kernel; maximum principle gives uniqueness and comparison.",
+      "historyAndReferences": "**Fourier (1822)** solved heat flow via series. **E. E. Holmes** and **Duhamel** developed Green's functions. **John** and **Friedman** studied parabolic regularity and Harnack inequalities.\n\n**References:** Evans, *PDE* Ch. 2; Friedman, *Partial Differential Equations of Parabolic Type*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#e11d48",
+      "content": [
+        {
+          "id": "heat-eqn-note",
+          "type": "text",
+          "markdown": "Feynman–Kac represents solutions as Brownian expectations; semigroup theory generates evolution $e^{t\\Delta}$."
+        }
+      ]
+    },
+    {
+      "id": "wave-eqn",
+      "title": "Wave Equation",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "35L"
+      ],
+      "customTags": [
+        "hyperbolic"
+      ],
+      "definition": "The **wave equation** $u_{tt} = c^2 \\Delta u$ is hyperbolic: disturbances propagate at finite speed $c$ along characteristics. d'Alembert's formula solves 1D; energy $E(t) = \\int (u_t^2 + c^2 |\\nabla u|^2)$ is conserved for suitable boundary conditions.",
+      "historyAndReferences": "**d'Alembert (1747)** solved vibrating strings. **Kirchhoff** gave explicit 3D solutions. **Hadamard** classified PDEs by characteristics. **Lax–Phillips** developed scattering theory.\n\n**References:** Evans, *PDE* Ch. 2; Taylor, *Partial Differential Equations* Vol. I.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#e11d48",
+      "content": [
+        {
+          "id": "wave-eqn-note",
+          "type": "text",
+          "markdown": "Finite propagation distinguishes hyperbolic from parabolic/elliptic; shock formation appears in nonlinear variants."
+        }
+      ]
+    },
+    {
+      "id": "fourier",
+      "title": "Fourier Analysis",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "42A"
+      ],
+      "customTags": [],
+      "definition": "**Fourier analysis** decomposes functions into superpositions of $e^{2\\pi i \\xi x}$ (or $\\sin, \\cos$). The **Fourier transform** $\\hat{f}(\\xi) = \\int f(x) e^{-2\\pi i x\\xi}\\,dx$ diagonalizes convolution; **Plancherel** gives $\\|f\\|_2 = \\|\\hat{f}\\|_2$ on $L^2$.",
+      "historyAndReferences": "**Fourier (1807)** introduced series for heat. **Plancherel (1910)** proved $L^2$ isometry. **Carleson (1966)** proved pointwise convergence of Fourier series for $L^2$. **Stein** unified harmonic analysis.\n\n**References:** Stein & Shakarchi, *Fourier Analysis*; Katznelson, *An Introduction to Harmonic Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#4f46e5",
+      "content": [
+        {
+          "id": "fourier-note",
+          "type": "text",
+          "markdown": "Poisson summation, uncertainty principle, and Tauberian theorems connect to number theory and probability."
+        }
+      ]
+    },
+    {
+      "id": "spectral",
+      "title": "Spectral Theory",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "47A"
+      ],
+      "customTags": [],
+      "definition": "**Spectral theory** studies operators via their **spectrum** $\\sigma(T)$—eigenvalues and generalized spectrum. Self-adjoint operators on Hilbert space admit spectral theorem (projection-valued measures); compact operators have discrete spectrum accumulating at 0.",
+      "historyAndReferences": "**Hilbert** coined \"spectrum\" for integral equations. **von Neumann** developed spectral theorem (1929–32). **Dunford** introduced functional calculus. **Reed & Simon** *Methods of Mathematical Physics* is canonical.\n\n**References:** Reed & Simon, Vol. I; Conway, *A Course in Operator Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0e7490",
+      "content": [
+        {
+          "id": "spectral-note",
+          "type": "text",
+          "markdown": "Resolvent $(T-\\lambda)^{-1}$, spectral radius, and functional calculus $f(T)$ extend matrix diagonalization to infinite dimensions."
+        }
+      ]
+    },
+    {
+      "id": "hilbert",
+      "title": "Hilbert Spaces",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "46C"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **Hilbert space** is a complete inner-product space $(H, \\langle\\cdot,\\cdot\\rangle)$. Orthogonality, Riesz representation ($\\phi \\mapsto \\langle \\cdot, v\\rangle$), and orthonormal bases characterize $H$. $L^2$ is the prime example; quantum states are unit vectors in Hilbert space.",
+      "historyAndReferences": "**Hilbert (1912)** formalized integral equations with quadratic forms. **Riesz–Fischer (1907)** proved $L^2$ completeness. **von Neumann** placed QM on Hilbert space foundations.\n\n**References:** Rudin, *Real and Complex Analysis* Ch. 4; Halmos, *Introduction to Hilbert Space*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0369a1",
+      "content": [
+        {
+          "id": "hilbert-note",
+          "type": "text",
+          "markdown": "Projection onto closed convex sets minimizes distance; spectral theorem applies to normal operators."
+        }
+      ]
+    },
+    {
+      "id": "measure",
+      "title": "Measure Theory",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "28A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **measure space** $(X, \\mathcal{M}, \\mu)$ has a $\\sigma$-algebra $\\mathcal{M}$ of measurable sets and a countably additive measure $\\mu$. Carathéodory extension builds measures from outer measures; Lebesgue measure on $\\mathbb{R}^n$ extends length; integration is defined via simple functions and limits.",
+      "historyAndReferences": "**Lebesgue (1902)** defined measure and integral. **Carathéodory (1914)** gave axiomatic extension. **Kolmogorov (1933)** axiomatized probability as measure. **Halmos** and **Rudin** are standard expositions.\n\n**References:** Rudin, *Real and Complex Analysis*; Folland, *Real Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#d97706",
+      "content": [
+        {
+          "id": "measure-note",
+          "type": "text",
+          "markdown": "Fubini–Tonelli interchange integrals; Radon–Nikodym derivatives relate absolutely continuous measures."
+        }
+      ]
+    },
+    {
+      "id": "lebesgue",
+      "title": "Lebesgue Integration",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "28A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Lebesgue integration** integrates measurable $f$ via $\\int f\\,d\\mu = \\sup \\int \\varphi\\,d\\mu$ over simple $\\varphi \\le f$. **Dominated convergence** passes limits through integrals; **monotone convergence** handles increasing sequences. More functions are integrable than in Riemann theory.",
+      "historyAndReferences": "**Lebesgue (1902)** in his thesis. **Fatou** and **Lebesgue** proved convergence theorems. **Riesz–Fischer** linked $L^2$ to Fourier series. **Bartle** gives an accessible treatment.\n\n**References:** Bartle, *The Elements of Integration and Lebesgue Measure*; Folland, *Real Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#d97706",
+      "content": [
+        {
+          "id": "lebesgue-note",
+          "type": "text",
+          "markdown": "Almost everywhere (a.e.) statements replace pointwise exceptions; $L^1$ completeness enables functional analysis."
+        }
+      ]
+    },
+    {
+      "id": "lp-spaces",
+      "title": "$L^p$ Spaces",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "46E"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "For a measure space $(X,\\mu)$, **$L^p(X,\\mu)$** ($1 \\le p < \\infty$) consists of measurable $f$ with $\\|f\\|_p = (\\int |f|^p)^{1/p} < \\infty$, modulo a.e. zero. **Hölder** and **Minkowski** inequalities control products and sums; $L^2$ is Hilbert; $L^\\infty$ is the essential supremum norm.",
+      "historyAndReferences": "**Riesz (1910)** introduced $L^p$ in his work on integral equations. **Hausdorff** and **Young** developed inequalities. **Stein** treats $L^p$ in harmonic analysis.\n\n**References:** Folland, *Real Analysis* Ch. 6; Brezis, *Functional Analysis*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0369a1",
+      "content": [
+        {
+          "id": "lp-spaces-note",
+          "type": "text",
+          "markdown": "Dual $(L^p)^* \\cong L^q$ for $1 < p < \\infty$ (Riesz representation); interpolation (Riesz–Thorin) connects exponents."
+        }
+      ]
+    },
+    {
+      "id": "distributions",
+      "title": "Distributions",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "46F"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **distribution** (generalized function) is a continuous linear functional on $\\mathcal{D}$ (smooth compactly supported test functions). Derivatives $\\langle T', \\varphi\\rangle = -\\langle T, \\varphi'\\rangle$ extend classical differentiation; the Dirac delta $\\delta$ picks out $\\varphi(0)$.",
+      "historyAndReferences": "**Dirac (1920s)** used delta functions in QM. **Schwartz (1945–50)** created distribution theory and won the Fields Medal (1950). **Friedlander** and **Hörmander** applied to PDEs.\n\n**References:** Friedlander & Joshi, *Introduction to the Theory of Distributions*; Hörmander, *The Analysis of Linear Partial Differential Operators* Vol. I.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0369a1",
+      "content": [
+        {
+          "id": "distributions-note",
+          "type": "text",
+          "markdown": "Fourier transform extends to tempered distributions $\\mathcal{S}'$; fundamental solutions of PDEs are often distributions."
+        }
+      ]
+    },
+    {
+      "id": "complex",
+      "title": "Complex Analysis",
+      "type": "concept",
+      "parentId": "fld-analysis",
+      "mscCodes": [
+        "30"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A function $f: U \\subset \\mathbb{C} \\to \\mathbb{C}$ is **holomorphic** if it is complex-differentiable (equivalently analytic, satisfying Cauchy–Riemann equations). **Cauchy integral formula** $f(z_0) = \\frac{1}{2\\pi i}\\oint \\frac{f(z)}{z-z_0}dz$ forces infinite differentiability; **residue theorem** evaluates contour integrals.",
+      "historyAndReferences": "**Cauchy (1825)** developed complex integration. **Riemann (1851)** founded geometric function theory. **Weierstrass** emphasized power series. **Ahlfors (1979)** *Complex Analysis* is a classic.\n\n**References:** Ahlfors, *Complex Analysis*; Conway, *Functions of One Complex Variable*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#ea580c",
+      "content": [
+        {
+          "id": "complex-note",
+          "type": "text",
+          "markdown": "Liouville, maximum modulus, and Schwarz lemma constrain global behavior; Riemann mapping theorem classifies simply connected domains."
+        }
+      ]
+    },
+    {
+      "id": "fld-topo",
+      "title": "Topology & Geometry",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "55"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Topology emerged from Euler (polyhedra, Königsberg bridges) and **Poincaré's Analysis Situs (1895)**. Algebraic topology (homotopy, homology) and differential geometry (Riemann, 1854) unified geometry with algebra and analysis.\n\n**Landmarks:** Fundamental group; singular homology (Eilenberg–Steenrod axioms); de Rham theorem; Milnor's exotic spheres; Perelman's Poincaré proof.\n\n**References:** Hatcher, *Algebraic Topology*; Lee, *Introduction to Smooth Manifolds*; do Carmo, *Riemannian Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "fund-group",
+      "title": "Fundamental Group",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55Q"
+      ],
+      "customTags": [],
+      "definition": "The **fundamental group** $\\pi_1(X, x_0)$ is homotopy classes of loops $\\gamma: [0,1] \\to X$ based at $x_0$, with concatenation. It is a functor from pointed spaces to groups; van Kampen's theorem computes $\\pi_1$ of glued spaces.",
+      "historyAndReferences": "**Poincaré (1895)** introduced the fundamental group in *Analysis Situs*. **van Kampen (1933)** gave the gluing formula. **Seifert–van Kampen** is standard in textbooks.\n\n**References:** Hatcher, *Algebraic Topology* Ch. 1; Massey, *A Basic Course in Algebraic Topology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "fund-group-note",
+          "type": "text",
+          "markdown": "Simply connected means $\\pi_1 = 0$; covering spaces correspond to subgroups of $\\pi_1$."
+        }
+      ]
+    },
+    {
+      "id": "homology",
+      "title": "Homology",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55N"
+      ],
+      "customTags": [
+        "homological"
+      ],
+      "definition": "**Singular homology** $H_n(X)$ measures $n$-dimensional holes: $H_0$ counts path components, $H_1$ abelianizes $\\pi_1$, $H_n$ for $n \\ge 2$ records higher cycles. It is homotopy invariant, functorial, and satisfies the Eilenberg–Steenrod axioms (including exactness and excision).",
+      "historyAndReferences": "**Poincaré** defined Betti numbers. **Noether** promoted homology as groups. **Eilenberg & Steenrod (1945)** axiomatized homology theories. **Singular homology** (Eilenberg) is the standard construction.\n\n**References:** Hatcher Ch. 2; Spanier, *Algebraic Topology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "homology-note",
+          "type": "text",
+          "markdown": "Betti numbers $\\beta_n = \\mathrm{rank}\\, H_n$ summarize complexity; universal coefficient theorem relates coefficients."
+        }
+      ]
+    },
+    {
+      "id": "manifolds",
+      "title": "Smooth Manifolds",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "57N",
+        "58A"
+      ],
+      "customTags": [],
+      "definition": "An $n$-dimensional **smooth manifold** $M$ is a Hausdorff paracompact space locally homeomorphic to $\\mathbb{R}^n$, with a **smooth atlas**—compatible charts $\\phi: U \\to \\mathbb{R}^n$. Tangent bundles $TM$, vector fields, and differential forms live intrinsically on $M$.",
+      "historyAndReferences": "**Riemann (1854)** introduced abstract manifolds. **Whitney (1936)** proved embedding theorems. **Milnor (1956)** discovered exotic 7-spheres. **Lee** and **Spivak** are modern references.\n\n**References:** Lee, *Introduction to Smooth Manifolds*; Spivak, *A Comprehensive Introduction to Differential Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#be123c",
+      "content": [
+        {
+          "id": "manifolds-note",
+          "type": "text",
+          "markdown": "Whitney embedding theorem places smooth $n$-manifolds in $\\mathbb{R}^{2n}$; partitions of unity glue local data globally."
+        }
+      ]
+    },
+    {
+      "id": "diff-topo",
+      "title": "Differential Topology",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "57R"
+      ],
+      "customTags": [],
+      "definition": "**Differential topology** studies smooth manifolds up to diffeomorphism—transversality makes intersections clean; **degree theory** counts preimage points; **cobordism** relates manifolds as boundaries. Sard's theorem and Whitney tricks are basic tools.",
+      "historyAndReferences": "**Whitney** developed transversality and embeddings. **Milnor** wrote *Topology from the Differentiable Viewpoint* (1965). **Thom** founded cobordism theory (Fields Medal 1958). **Kervaire–Milnor** classified exotic spheres.\n\n**References:** Milnor, *Topology from the Differentiable Viewpoint*; Guillemin & Pollack, *Differential Topology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#be123c",
+      "content": [
+        {
+          "id": "diff-topo-note",
+          "type": "text",
+          "markdown": "Surgery theory classifies manifolds in high dimensions; handle decompositions build manifolds inductively."
+        }
+      ]
+    },
+    {
+      "id": "riemannian",
+      "title": "Riemannian Geometry",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "53C"
+      ],
+      "customTags": [],
+      "definition": "A **Riemannian manifold** $(M,g)$ has a smoothly varying inner product on each tangent space. The **Levi-Civita connection** is torsion-free and metric-compatible; **curvature** (Riemann, Ricci, scalar) measures deviation from flatness; **geodesics** locally minimize length.",
+      "historyAndReferences": "**Riemann (1854)** introduced metric geometry. **Levi-Civita (1917)** and **Cartan** developed connections. **Einstein (1915)** used Ricci curvature in GR. **do Carmo** and **Petersen** are standard texts.\n\n**References:** do Carmo, *Riemannian Geometry*; Petersen, *Riemannian Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#a16207",
+      "content": [
+        {
+          "id": "riemannian-note",
+          "type": "text",
+          "markdown": "Gauss–Bonnet links curvature to topology; comparison theorems (Bonnet–Myers, Cartan–Hadamard) constrain global shape."
+        }
+      ]
+    },
+    {
+      "id": "knot-theory",
+      "title": "Knot Theory",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "57K"
+      ],
+      "customTags": [],
+      "definition": "A **knot** is a smooth embedding $K: S^1 \\hookrightarrow S^3$ up to ambient isotopy. **Invariants** (Jones, Alexander, HOMFLY polynomials; knot group; signature) distinguish knots. **Concordance** and **cable operations** organize the knot concordance group.",
+      "historyAndReferences": "**Tait (1870s)** tabulated knots. **Alexander (1920s)** introduced the polynomial. **Jones (1984)** discovered his polynomial via von Neumann algebras. **Witten (1989)** linked Jones to Chern–Simons theory.\n\n**References:** Lickorish, *An Introduction to Knot Theory*; Rolfsen, *Knots and Links*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#be123c",
+      "content": [
+        {
+          "id": "knot-theory-note",
+          "type": "text",
+          "markdown": "Three-manifold invariants (Heegaard Floer, Khovanov homology) modernized classical knot polynomials."
+        }
+      ]
+    },
+    {
+      "id": "covering",
+      "title": "Covering Spaces",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **covering map** $p: \\tilde{X} \\to X$ is a local homeomorphism evenly covering neighborhoods. Deck transformations $\\mathrm{Aut}(p)$ act on fibers; for connected $X$, coverings correspond to conjugacy classes of subgroups of $\\pi_1(X, x_0)$.",
+      "historyAndReferences": "**Poincaré** and **Riemann** used covering ideas implicitly. **Seifert** classified coverings via $\\pi_1$. **Hatcher** Ch. 1 gives the modern treatment.\n\n**References:** Hatcher Ch. 1; Massey, *Algebraic Topology* Ch. 5.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "covering-note",
+          "type": "text",
+          "markdown": "Universal cover $\\tilde{X}$ corresponds to the trivial subgroup; Galois coverings match normal subgroups."
+        }
+      ]
+    },
+    {
+      "id": "cw",
+      "title": "CW Complexes",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55Q"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **CW complex** is built inductively: start with 0-cells (points), attach $n$-cells via attaching maps $S^{n-1} \\to X^{(n-1)}$. Cellular homology computes homology from the combinatorics of cells; CW structures exist on most spaces of interest.",
+      "historyAndReferences": "**Whitehead (1949)** introduced CW complexes. **Milnor** used them in homotopy theory. **Hatcher** develops cellular homology in Ch. 2.\n\n**References:** Hatcher Ch. 2; Spanier, *Algebraic Topology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "cw-note",
+          "type": "text",
+          "markdown": "Homotopy extension and cellular approximation simplify maps between CW complexes."
+        }
+      ]
+    },
+    {
+      "id": "sing-cohom",
+      "title": "Singular Cohomology",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55N"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Singular cohomology** $H^n(X; R)$ is cohomology of the dual cochain complex $\\mathrm{Hom}(C_\\bullet(X), R)$. The **cup product** $\\smile$ gives a graded ring structure; **universal coefficient** relates $H^n(X; R)$ to $H_n(X)$ and $\\mathrm{Ext}$ terms.",
+      "historyAndReferences": "**Alexander & Whitney (1935)** introduced cup product. **Eilenberg & Steenrod** axiomatized cohomology. **Mac Lane** developed cup product algebraically.\n\n**References:** Hatcher Ch. 3; Spanier, *Algebraic Topology*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "sing-cohom-note",
+          "type": "text",
+          "markdown": "Cohomology is representable by Eilenberg–Mac Lane spaces; characteristic classes live in $H^*(X; \\mathbb{Z})$."
+        }
+      ]
+    },
+    {
+      "id": "de-rham",
+      "title": "de Rham Cohomology",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "58A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**de Rham cohomology** $H^k_{dR}(M) = \\ker d / \\mathrm{im}\\, d$ on the complex of differential forms on a smooth manifold $M$. Closed forms modulo exact forms; Poincaré lemma shows locally exact = exact on contractible sets.",
+      "historyAndReferences": "**de Rham (1931)** introduced the cohomology. **de Rham theorem (1950s):** $H^k_{dR}(M) \\cong H^k_{sing}(M; \\mathbb{R})$. **Hodge (1940s)** developed harmonic forms. **Bott & Tu** is a classic exposition.\n\n**References:** Bott & Tu, *Differential Forms in Algebraic Topology*; Warner, *Foundations of Differentiable Manifolds*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#9d174d",
+      "content": [
+        {
+          "id": "de-rham-note",
+          "type": "text",
+          "markdown": "Hodge theory on compact Riemannian manifolds picks canonical representatives—harmonic forms."
+        }
+      ]
+    },
+    {
+      "id": "bundles",
+      "title": "Vector Bundles",
+      "type": "concept",
+      "parentId": "fld-topo",
+      "mscCodes": [
+        "55R"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **vector bundle** $E \\to B$ locally looks like $U \\times \\mathbb{R}^k$: fibers $E_b$ vary continuously (smoothly) over base $B$. Sections, connections, and curvature generalize calculus on manifolds; **characteristic classes** (Chern, Pontryagin, Stiefel–Whitney) are cohomological obstructions.",
+      "historyAndReferences": "**Whitney (1930s)** founded bundle theory. **Chern (1946)** introduced Chern classes. **Atiyah–Singer index theorem (1963)** linked analysis to topology via bundles.\n\n**References:** Hatcher, *Vector Bundles and K-Theory*; Steenrod, *The Topology of Fibre Bundles*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#c2410c",
+      "content": [
+        {
+          "id": "bundles-note",
+          "type": "text",
+          "markdown": "Associated bundles build from group representations; tangent and cotangent bundles are canonical examples."
+        }
+      ]
+    },
+    {
+      "id": "fld-algebra",
+      "title": "Algebra",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "20"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Modern algebra crystallized from Galois's work on equations (1832), **Noether's** ideal theory, and **van der Waerden's** *Moderne Algebra* (1930). Groups encode symmetry; rings and modules unify number theory and geometry.\n\n**Landmarks:** Sylow theorems; structure of finite groups; Galois correspondence; homological algebra; representation theory of Lie groups.\n\n**References:** Dummit & Foote, *Abstract Algebra*; Lang, *Algebra*; Atiyah & Macdonald, *Introduction to Commutative Algebra*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#65a30d",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "groups",
+      "title": "Groups",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "20A"
+      ],
+      "customTags": [
+        "fundamental"
+      ],
+      "definition": "A **group** $(G, \\cdot)$ is a set with an associative binary operation, identity $e$, and inverses $g^{-1}$ for each $g \\in G$. Groups model symmetry: permutations, rotations, Galois groups, and Lie groups. Subgroups, cosets, and quotient groups $G/N$ organize structure; Lagrange's theorem relates orders.",
+      "historyAndReferences": "**Galois (1832)** linked groups to solvability of equations. **Cayley (1854)** gave abstract definition. **Jordan** and **Sylow** developed finite group theory. **Gorenstein** led the classification program.\n\n**References:** Dummit & Foote Ch. 1–6; Rotman, *An Introduction to the Theory of Groups*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#65a30d",
+      "content": [
+        {
+          "id": "groups-note",
+          "type": "text",
+          "markdown": "Simple groups are building blocks; classification of finite simple groups (1980s) is a monumental theorem."
+        }
+      ]
+    },
+    {
+      "id": "rep-theory",
+      "title": "Representation Theory",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "20C"
+      ],
+      "customTags": [],
+      "definition": "**Representation theory** studies homomorphisms $\\rho: G \\to \\mathrm{GL}(V)$ (or algebra representations), linearizing symmetry. Irreducible representations are atoms; character theory $\\chi(g) = \\mathrm{tr}\\,\\rho(g)$ detects decomposition on finite groups over $\\mathbb{C}$.",
+      "historyAndReferences": "**Frobenius & Burnside (1890s–1900s)** developed character theory. **Weyl (1920s)** treated compact Lie groups. **Serre**'s *Linear Representations of Finite Groups* is concise and deep.\n\n**References:** Serre, *Linear Representations of Finite Groups*; Fulton & Harris, *Representation Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#65a30d",
+      "content": [
+        {
+          "id": "rep-theory-note",
+          "type": "text",
+          "markdown": "Peter–Weyl theorem decomposes $L^2$ on compact Lie groups; highest weight theory classifies representations of semisimple Lie algebras."
+        }
+      ]
+    },
+    {
+      "id": "galois",
+      "title": "Galois Theory",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "12F"
+      ],
+      "customTags": [
+        "bridging"
+      ],
+      "definition": "**Galois theory** links field extensions $L/K$ to groups $\\mathrm{Gal}(L/K)$ of $K$-automorphisms of $L$. The **fundamental theorem** is a lattice anti-isomorphism between intermediate fields and subgroups. Solvability by radicals corresponds to solvable Galois groups (Abel, Galois).",
+      "historyAndReferences": "**Galois (1832)** died at 20, leaving manuscripts on solvability. **Abel (1824)** proved quintic unsolvability. **Artin** reframed Galois theory abstractly. **Emil Artin's** *Galois Theory* lectures remain classic.\n\n**References:** Artin, *Galois Theory*; Cox, *Galois Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#3b82f6",
+      "content": [
+        {
+          "id": "galois-note",
+          "type": "text",
+          "markdown": "Over $\\mathbb{Q}$, splitting fields of polynomials encode root symmetries; inverse Galois problem asks which groups arise."
+        }
+      ]
+    },
+    {
+      "id": "commalg",
+      "title": "Commutative Algebra",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "13A"
+      ],
+      "customTags": [],
+      "definition": "**Commutative algebra** studies commutative rings $R$ and $R$-modules: ideals, localization $S^{-1}R$, Noetherian rings (ascending chain condition), primary decomposition, and dimension theory (Krull dimension). It is the local language of algebraic geometry via $\\mathrm{Spec}(R)$.",
+      "historyAndReferences": "**Noether (1921)** proved primary decomposition in Noetherian rings. **Krull** developed dimension and localization. **Zariski** connected algebra to geometry. **Atiyah & Macdonald (1969)** is the concise bible.\n\n**References:** Atiyah & Macdonald; Eisenbud, *Commutative Algebra with a View Toward Algebraic Geometry*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#0ea5e9",
+      "content": [
+        {
+          "id": "commalg-note",
+          "type": "text",
+          "markdown": "Regular sequences, depth, and Cohen–Macaulay rings measure singularities; flatness governs base change."
+        }
+      ]
+    },
+    {
+      "id": "rings",
+      "title": "Rings & Modules",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "16"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **ring** has addition (abelian group), multiplication (associative, distributive), often with unit. **Modules** are abelian groups with scalar action $r \\cdot m$; kernels and quotients behave like vector spaces without basis. **Exact sequences** track how maps fit; **Artin–Wedderburn** classifies semisimple rings.",
+      "historyAndReferences": "**Dedekind** introduced ideals in number rings. **Noether** pioneered module theory. **Wedderburn (1907)** classified semisimple algebras. **Jacobson** developed radical theory.\n\n**References:** Dummit & Foote Ch. 10–12; Lam, *Lectures on Modules and Rings*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#14b8a6",
+      "content": [
+        {
+          "id": "rings-note",
+          "type": "text",
+          "markdown": "Noncommutative algebra studies quivers, group algebras, and operator algebras; modules unify linear algebra over rings."
+        }
+      ]
+    },
+    {
+      "id": "homological",
+      "title": "Homological Algebra",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "18G"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Homological algebra** studies chain complexes and derived functors in abelian categories. **Ext**$^n_R(M,N)$ measures extension obstructions; **Tor**$_n^R(M,N)$ measures failure of flatness. Projective/injective resolutions compute them; **snake lemma** and **five lemma** propagate exactness.",
+      "historyAndReferences": "**Cartan & Eilenberg (1956)** wrote the founding text. **Grothendieck** developed abelian categories in Tôhoku. **Mac Lane** and **Rotman** give accessible introductions.\n\n**References:** Weibel, *An Introduction to Homological Algebra*; Rotman, *An Introduction to Homological Algebra*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "homological-note",
+          "type": "text",
+          "markdown": "Derived categories (Verdier) abstract resolutions; spectral sequences (Leray–Serre) compute composed functors."
+        }
+      ]
+    },
+    {
+      "id": "tensors",
+      "title": "Tensor Products",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "16"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "The **tensor product** $M \\otimes_R N$ is the universal bilinear $R$-module: maps $M \\times N \\to P$ bilinear factor through $M \\otimes_R N$. Base change $M \\otimes_R S$ extends scalars; **flat** modules preserve exact sequences under $-\\otimes_R M$.",
+      "historyAndReferences": "**Whitney** used tensors in differential geometry. **Bourbaki** systematized universal constructions. **Atiyah–Macdonald** treats tensor products for commutative algebra.\n\n**References:** Atiyah & Macdonald Ch. 2; Dummit & Foote Ch. 10.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#14b8a6",
+      "content": [
+        {
+          "id": "tensors-note",
+          "type": "text",
+          "markdown": "In geometry, tensors on manifolds are sections of tensor products of bundles; universal property replaces coordinates."
+        }
+      ]
+    },
+    {
+      "id": "lie-alg",
+      "title": "Lie Algebras",
+      "type": "concept",
+      "parentId": "fld-algebra",
+      "mscCodes": [
+        "17B",
+        "22E"
+      ],
+      "customTags": [],
+      "definition": "A **Lie algebra** $\\mathfrak{g}$ is a vector space with bilinear bracket $[\\cdot,\\cdot]$ that is antisymmetric and satisfies the **Jacobi identity** $[x,[y,z]] + [y,[z,x]] + [z,[x,y]] = 0$. Lie algebras are infinitesimal symmetries of Lie groups; semisimple classification via root systems (Dynkin diagrams).",
+      "historyAndReferences": "**Lie, Killing, Cartan (1880s–1900s)** classified semisimple Lie algebras. **Weyl, Harish-Chandra** developed representation theory. **Humphreys** and **Hall** are standard texts.\n\n**References:** Humphreys, *Introduction to Lie Algebras and Representation Theory*; Hall, *Lie Groups, Lie Algebras, and Representations*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#10b981",
+      "content": [
+        {
+          "id": "lie-alg-note",
+          "type": "text",
+          "markdown": "Universal enveloping algebra $U(\\mathfrak{g})$ connects to representation theory; Killing form detects semisimplicity."
+        }
+      ]
+    },
+    {
+      "id": "fld-cat",
+      "title": "Category Theory",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "18"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** **Eilenberg & Mac Lane (1942–45)** invented categories, functors, and natural transformations to formalize \"natural\" constructions in algebraic topology—especially in the comparison of singular and simplicial homology.\n\n**Landmarks:** Yoneda lemma; adjoint functors; Grothendieck topoi (1960s); categorical logic; higher categories (quasi-categories, $\\infty$-categories).\n\n**References:** Mac Lane, *Categories for the Working Mathematician*; Awodey, *Category Theory*; Riehl, *Category Theory in Context*; Leinster, *Basic Category Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "category",
+      "title": "Categories",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "foundations"
+      ],
+      "definition": "A **category** $\\mathcal{C}$ has objects $\\mathrm{Ob}(\\mathcal{C})$, morphisms $\\mathrm{Hom}(A,B)$ with **composition** (associative) and **identities** $\\mathrm{id}_A$. Every mathematical structure with structure-preserving maps forms a category (groups, rings, topological spaces, schemes). Commutative diagrams express coherence of multiple morphisms.",
+      "historyAndReferences": "**Eilenberg & Mac Lane (1945)** — *General theory of natural equivalences* introduced categories, functors, and natural transformations.\n\n**See also:** Mac Lane (1998); Leinster, *Basic Category Theory*; Awodey, *Category Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "category-note",
+          "type": "text",
+          "markdown": "Small vs. large categories: set-theoretic issues are managed via universes or careful foundations."
+        }
+      ]
+    },
+    {
+      "id": "functors",
+      "title": "Functors",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **functor** $F: \\mathcal{C} \\to \\mathcal{D}$ assigns objects $F(A)$ and morphisms $F(f): F(A) \\to F(B)$, preserving composition and identities. **Covariant** functors preserve direction; **contravariant** reverse it ($F: \\mathcal{C}^{op} \\to \\mathcal{D}$). Faithful, full, and essentially surjective functors measure how faithfully $\\mathcal{C}$ embeds in $\\mathcal{D}$.",
+      "historyAndReferences": "**Eilenberg & Mac Lane** defined functors in 1945. **Kan (1958)** developed left/right Kan extensions. **Mac Lane**'s *CTM* is the standard reference.\n\n**References:** Mac Lane, *CTM* Ch. II; Riehl, *CT in Context* Ch. 1.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "functors-note",
+          "type": "text",
+          "markdown": "Forgetful functors drop structure; free functors adjoin it—often forming adjoint pairs."
+        }
+      ]
+    },
+    {
+      "id": "natural",
+      "title": "Natural Transformations",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **natural transformation** $\\eta: F \\Rightarrow G$ between functors assigns morphisms $\\eta_A: F(A) \\to G(A)$ such that for every $f: A \\to B$, the **naturality square** commutes: $G(f) \\circ \\eta_A = \\eta_B \\circ F(f)$. Natural isomorphisms identify functorially equivalent constructions.",
+      "historyAndReferences": "**Eilenberg & Mac Lane (1945)** introduced naturality to make precise when a construction is \"canonical.\" **Mac Lane** developed 2-categorical ideas. **Riehl** emphasizes naturality in proofs.\n\n**References:** Mac Lane, *CTM* Ch. I; Riehl, *CT in Context* Ch. 1.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "natural-note",
+          "type": "text",
+          "markdown": "Natural transformations are the 2-morphisms of the 2-category **Cat**; representability uses natural bijections."
+        }
+      ]
+    },
+    {
+      "id": "limits",
+      "title": "Limits & Colimits",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "A **limit** of a diagram $D: \\mathcal{J} \\to \\mathcal{C}$ is a universal cone—products, equalizers, pullbacks are examples. **Colimits** are universal cocones: coproducts, coequalizers, pushouts. Existence of all (co)limits of a given shape makes $\\mathcal{C}$ complete/cocomplete.",
+      "historyAndReferences": "**Kan (1958)** developed limits in general. **Grothendieck** used fiber products and limits heavily in EGA. **Mac Lane** Ch. III; **Riehl** Ch. 3 give modern treatments.\n\n**References:** Mac Lane, *CTM* Ch. III; Riehl, *CT in Context* Ch. 3.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "limits-note",
+          "type": "text",
+          "markdown": "Preservation of limits characterizes adjoints: right adjoints preserve limits; left adjoints preserve colimits."
+        }
+      ]
+    },
+    {
+      "id": "adjoints",
+      "title": "Adjoint Functors",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "An **adjunction** $F \\dashv G$ means natural isomorphism $\\mathrm{Hom}_{\\mathcal{D}}(F(X), Y) \\cong \\mathrm{Hom}_{\\mathcal{C}}(X, G(Y))$. Unit $\\eta: \\mathrm{id} \\Rightarrow GF$ and counit $\\varepsilon: FG \\Rightarrow \\mathrm{id}$ satisfy triangle identities. Free–forgetful pairs and currying are archetypes.",
+      "historyAndReferences": "**Kan (1958)** formalized adjoints. **Lawvere** emphasized adjunctions in categorical logic. **Mac Lane** Ch. IV; **Awodey** gives an accessible account.\n\n**References:** Mac Lane, *CTM* Ch. IV; Awodey, *Category Theory* Ch. 9.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "adjoints-note",
+          "type": "text",
+          "markdown": "Adjoints determine each other up to unique natural isomorphism; they preserve (co)limits in the correct direction."
+        }
+      ]
+    },
+    {
+      "id": "yoneda",
+      "title": "Yoneda Lemma",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18A"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "The **Yoneda embedding** $Y: \\mathcal{C} \\to [\\mathcal{C}^{op}, \\mathbf{Set}]$, $A \\mapsto h_A = \\mathrm{Hom}(-, A)$, is fully faithful. The **Yoneda lemma**: natural transformations $\\mathrm{Nat}(h_A, F) \\cong F(A)$—an object is determined by how other objects map into it.",
+      "historyAndReferences": "**Yoneda (1954)** introduced the embedding. **Grothendieck** and **Kan** developed functor categories in the 1950s–60s. The lemma is central to modern algebraic geometry (functor of points).\n\n**References:** Mac Lane, *CTM* Ch. III; Riehl, *CT in Context* Ch. 2.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "yoneda-note",
+          "type": "text",
+          "markdown": "Representable functors are building blocks; presheaf categories are universal colimits completions."
+        }
+      ]
+    },
+    {
+      "id": "topos",
+      "title": "Topos Theory",
+      "type": "concept",
+      "parentId": "fld-cat",
+      "mscCodes": [
+        "18B"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "An **elementary topos** is a category with finite limits, exponentials $B^A$, and a **subobject classifier** $\\Omega$ (internal truth object). Topoi model **higher-order intuitionistic logic**; sheaves on a site form a Grothendieck topos, unifying geometry and logic.",
+      "historyAndReferences": "**Grothendieck (1960s)** introduced Grothendieck topoi for étale cohomology. **Lawvere & Tierney (1970)** axiomatized elementary topoi. **Johnstone**'s *Sketches of an Elephant* is the comprehensive treatise.\n\n**References:** Johnstone, *Sketches of an Elephant*; Mac Lane & Moerdijk, *Sheaves in Geometry and Logic*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#059669",
+      "content": [
+        {
+          "id": "topos-note",
+          "type": "text",
+          "markdown": "Classifying topoi encode theories; forcing in set theory can be viewed topologically via topoi."
+        }
+      ]
+    },
+    {
+      "id": "fld-logic",
+      "title": "Logic",
+      "type": "field-folder",
+      "parentId": null,
+      "mscCodes": [
+        "03"
+      ],
+      "customTags": [],
+      "historyAndReferences": "**Origins:** Logic formalizes valid reasoning. **Frege (1879)** and **Peano** gave predicate calculus; **Hilbert**'s program sought consistency proofs. **Gödel (1930–31)** proved completeness and incompleteness, reshaping foundations.\n\n**Landmarks:** Model theory (Tarski, Robinson); forcing (Cohen); computability (Turing); type theory (Martin-Löf) and proof assistants.\n\n**References:** Enderton, *A Mathematical Introduction to Logic*; Marker, *Model Theory*; Troelstra & van Dalen, *Constructivism in Mathematics*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [],
+      "collapsed": false
+    },
+    {
+      "id": "fol",
+      "title": "First-Order Logic",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03B"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**First-order logic** has formulas built from atomic predicates $P(t_1,\\ldots,t_n)$, connectives $\\land,\\lor,\\neg,\\to$, and quantifiers $\\forall x$, $\\exists x$ over individual variables. Structures $\\mathcal{M}$ interpret symbols; $\\mathcal{M} \\models \\varphi$ means $\\varphi$ is true in $\\mathcal{M}$; proofs are syntactic derivations in a Hilbert or natural deduction system.",
+      "historyAndReferences": "**Frege (1879)** *Begriffsschrift* invented predicate logic. **Hilbert & Ackermann (1928)** systematized first-order systems. **Tarski** defined truth in models (1930s).\n\n**References:** Enderton, *A Mathematical Introduction to Logic*; Mendelson, *Introduction to Mathematical Logic*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "fol-note",
+          "type": "text",
+          "markdown": "First-order logic is expressive enough for most mathematics yet enjoys compactness and Löwenheim–Skolem phenomena."
+        }
+      ]
+    },
+    {
+      "id": "completeness",
+      "title": "Completeness Theorem",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03C"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Gödel's completeness theorem (1929):** every first-order sentence $\\varphi$ that is **valid** (true in all models, $\\models \\varphi$) is **provable** ($\\vdash \\varphi$) in a sound, complete proof system. Equivalently, consistent theories have models; satisfiability and consistency coincide for first-order logic.",
+      "historyAndReferences": "**Gödel (1929)** proved completeness in his dissertation. **Henkin (1949)** gave a model-existence proof via term models. **Completeness fails** for second-order logic.\n\n**References:** Enderton Ch. 2; Marker, *Model Theory* Ch. 1.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "completeness-note",
+          "type": "text",
+          "markdown": "Soundness ($\\vdash \\varphi \\Rightarrow \\models \\varphi$) is easier; completeness is the deep direction via maximal consistent sets or Henkin constructions."
+        }
+      ]
+    },
+    {
+      "id": "compactness",
+      "title": "Compactness Theorem",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03C"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Compactness:** if every finite subset of a first-order theory $T$ has a model, then $T$ has a model. Equivalently, if $T \\models \\varphi$, then some finite $T_0 \\subset T$ already entails $\\varphi$. Nonstandard models of arithmetic and ultraproducts rely on compactness.",
+      "historyAndReferences": "**Gödel** (via completeness) and **Malcev (1936)** applied compactness. **Tarski** popularized semantic methods. **Robinson** used it for nonstandard analysis.\n\n**References:** Marker, *Model Theory* Ch. 2; Hodges, *A Shorter Model Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "compactness-note",
+          "type": "text",
+          "markdown": "Proof routes: completeness + König's lemma, or ultraproducts via Łoś's theorem."
+        }
+      ]
+    },
+    {
+      "id": "model-th",
+      "title": "Model Theory",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03C"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Model theory** studies classes of structures $\\mathrm{Mod}(T)$ for first-order theories $T$: types, saturation, stability, quantifier elimination, and definability. **Morley's theorem** classifies uncountably categorical theories; o-minimality tame real geometry.",
+      "historyAndReferences": "**Tarski (1930s)** defined truth and decidability of real closed fields. **Morley (1965)** proved categoricity theorem. **Shelah** developed stability theory. **Marker** is a standard graduate text.\n\n**References:** Marker, *Model Theory*; Hodges, *Model Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "model-th-note",
+          "type": "text",
+          "markdown": "Connections to algebra: model-complete fields, differential fields, and Zilber's program for complex exponentiation."
+        }
+      ]
+    },
+    {
+      "id": "godel-inc",
+      "title": "Gödel Incompleteness",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03F"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Gödel's incompleteness theorems (1931):** (1) Any consistent, effectively axiomatized theory $T$ extending Peano arithmetic (PA) is **incomplete**—there exists $\\varphi$ with $T \\nvdash \\varphi$ and $T \\nvdash \\neg\\varphi$. (2) Such $T$ cannot prove its own consistency (if consistent). Self-reference via Gödel numbering is the mechanism.",
+      "historyAndReferences": "**Gödel (1931)** published *Über formal unentscheidbare Sätze*. **Rosser (1936)** strengthened to Rosser's sentence. **Turing** and **Church** linked undecidability to computability.\n\n**References:** Enderton Ch. 3; Smith, *An Introduction to Gödel's Theorems*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "godel-inc-note",
+          "type": "text",
+          "markdown": "Incompleteness is not a flaw of mathematics but a fundamental limit of formal systems rich enough for arithmetic."
+        }
+      ]
+    },
+    {
+      "id": "type-th",
+      "title": "Type Theory",
+      "type": "concept",
+      "parentId": "fld-logic",
+      "mscCodes": [
+        "03B"
+      ],
+      "customTags": [
+        "grad"
+      ],
+      "definition": "**Type theory** classifies terms by types: $a : A$ means $a$ is a term of type $A$. **Dependent types** $\\Pi_{x:A} B(x)$ internalize $\\forall x:A, B(x)$; $\\Sigma_{x:A} B(x)$ internalizes $\\exists$. The **Curry–Howard correspondence** identifies proofs with programs and propositions with types.",
+      "historyAndReferences": "**Russell (1908)** types avoided paradoxes. **Church (1940)** typed $\\lambda$-calculus. **Martin-Löf (1970s–80s)** developed constructive dependent type theory. **HoTT Book (2013)** linked types to homotopy theory.\n\n**References:** Homotopy Type Theory collective, *The HoTT Book*; Nordström, Petersson, Smith, *Martin-Löf's Type Theory*.",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "pinned": false,
+      "color": "#6366f1",
+      "content": [
+        {
+          "id": "type-th-note",
+          "type": "text",
+          "markdown": "Martin-Löf type theory (MLTT) underlies Agda, Coq, and Lean proof assistants; homotopy type theory adds identity types as paths."
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "primes",
+      "target": "modarith",
+      "label": "mod p",
+      "theorem": "Primes and primality testing are studied modulo n; Fermat's little theorem links primes to modular exponentiation."
+    },
+    {
+      "id": "e2",
+      "source": "primes",
+      "target": "riemann-zeta",
+      "label": "encodes",
+      "theorem": "The Euler product ζ(s) = ∏(1 − p⁻ˢ)⁻¹ directly encodes the distribution of prime numbers."
+    },
+    {
+      "id": "e3",
+      "source": "fermat-last",
+      "target": "elliptic",
+      "label": "via",
+      "theorem": "Wiles proved Fermat's Last Theorem by showing certain elliptic curves (Taniyama–Shimura) cannot have certain Galois representations."
+    },
+    {
+      "id": "e4",
+      "source": "modforms",
+      "target": "fermat-last",
+      "label": "used in proof",
+      "theorem": "Modular forms and their Galois representations are central to Wiles's proof of Fermat's Last Theorem."
+    },
+    {
+      "id": "e5",
+      "source": "algnt",
+      "target": "galois",
+      "label": "generalizes",
+      "theorem": "Classical Galois theory over ℚ generalizes to Galois groups of number fields and their abelian extensions."
+    },
+    {
+      "id": "e6",
+      "source": "schemes",
+      "target": "varieties",
+      "label": "generalizes",
+      "theorem": "An irreducible algebraic variety corresponds to a reduced, irreducible scheme of finite type over a field."
+    },
+    {
+      "id": "e7",
+      "source": "schemes",
+      "target": "commalg",
+      "label": "built from",
+      "theorem": "Affine schemes are Spec(R) for commutative rings R; general schemes are glued from these."
+    },
+    {
+      "id": "e8",
+      "source": "elliptic",
+      "target": "modarith",
+      "label": "group law mod n",
+      "theorem": "The group law on elliptic curves reduces modulo n and underlies elliptic-curve cryptography."
+    },
+    {
+      "id": "e9",
+      "source": "elliptic",
+      "target": "fermat-last",
+      "label": "Wiles",
+      "theorem": "Wiles's modularity theorem for semistable elliptic curves over ℚ implies Fermat's Last Theorem."
+    },
+    {
+      "id": "e10",
+      "source": "cohom",
+      "target": "schemes",
+      "label": "on",
+      "theorem": "Sheaf cohomology (e.g. H^i(X, 𝒪_X)) is defined for schemes and measures global sections obstructions."
+    },
+    {
+      "id": "e11",
+      "source": "markov",
+      "target": "randwalk",
+      "label": "discrete version",
+      "theorem": "A random walk on a graph with transition probabilities is a Markov chain on the vertex set."
+    },
+    {
+      "id": "e12",
+      "source": "randwalk",
+      "target": "brownian",
+      "label": "scaling limit",
+      "theorem": "Donsker's invariance principle: properly scaled random walks converge in distribution to Brownian motion."
+    },
+    {
+      "id": "e13",
+      "source": "brownian",
+      "target": "stochcalc",
+      "label": "drives",
+      "theorem": "Stochastic calculus is built on Brownian motion as the fundamental continuous-time noise process."
+    },
+    {
+      "id": "e14",
+      "source": "martingale",
+      "target": "stochcalc",
+      "label": "Itô",
+      "theorem": "Itô's integral is defined for martingale integrators; Brownian motion is a square-integrable martingale."
+    },
+    {
+      "id": "e15",
+      "source": "clt",
+      "target": "brownian",
+      "label": "related",
+      "theorem": "The CLT explains why Brownian motion arises as a limit of scaled random walks with finite-variance steps."
+    },
+    {
+      "id": "e16",
+      "source": "stochcalc",
+      "target": "heat-eqn",
+      "label": "Feynman-Kac",
+      "theorem": "The Feynman–Kac formula represents solutions of the heat equation as expectations of functionals of Brownian motion."
+    },
+    {
+      "id": "e17",
+      "source": "sobolev",
+      "target": "elliptic-pde",
+      "label": "weak solutions",
+      "theorem": "Weak solutions of elliptic PDEs live in Sobolev spaces W^{1,2}; Lax–Milgram gives existence in H¹₀."
+    },
+    {
+      "id": "e18",
+      "source": "fourier",
+      "target": "heat-eqn",
+      "label": "solve",
+      "theorem": "The heat equation on ℝⁿ is solved explicitly by convolving with the Gaussian heat kernel (Fourier method)."
+    },
+    {
+      "id": "e19",
+      "source": "banach",
+      "target": "spectral",
+      "label": "operators on",
+      "theorem": "Spectral theory studies the spectrum σ(T) of bounded and unbounded operators on Banach and Hilbert spaces."
+    },
+    {
+      "id": "e20",
+      "source": "fund-group",
+      "target": "homology",
+      "label": "Hurewicz",
+      "theorem": "**Hurewicz theorem:** For a path-connected space X, the first homology group satisfies H₁(X; ℤ) ≅ π₁(X)^ab (abelianization). More generally, if πᵢ(X) = 0 for i < n, then πₙ(X) ≅ Hₙ(X) for n ≥ 2."
+    },
+    {
+      "id": "e21",
+      "source": "manifolds",
+      "target": "riemannian",
+      "label": "add metric",
+      "theorem": "A Riemannian manifold is a smooth manifold together with a smoothly varying inner product on each tangent space."
+    },
+    {
+      "id": "e22",
+      "source": "homology",
+      "target": "cohom",
+      "label": "dual viewpoints",
+      "theorem": "Homology Hₙ and cohomology Hⁿ are dual: for nice spaces, Hⁿ(X; R) ≅ Hom(Hₙ(X), R). Cup product in cohomology pairs with the Kronecker pairing with homology cycles.",
+      "weight": 3
+    },
+    {
+      "id": "e23",
+      "source": "groups",
+      "target": "rep-theory",
+      "label": "linearize",
+      "theorem": "Representation theory replaces abstract group elements with concrete matrices, preserving the group structure."
+    },
+    {
+      "id": "e24",
+      "source": "galois",
+      "target": "groups",
+      "label": "Galois group",
+      "theorem": "The Galois group Gal(L/K) is a group of field automorphisms fixing K; it encodes the symmetry of roots."
+    },
+    {
+      "id": "e25",
+      "source": "commalg",
+      "target": "schemes",
+      "label": "Spec",
+      "theorem": "The functor Spec assigns to a commutative ring R the affine scheme whose points are prime ideals of R."
+    },
+    {
+      "id": "e26",
+      "source": "category",
+      "target": "schemes",
+      "label": "functors of points",
+      "theorem": "Schemes can be viewed as functors of points (functors from rings to sets), a categorical perspective on geometry."
+    },
+    {
+      "id": "e27",
+      "source": "lie-alg",
+      "target": "rep-theory",
+      "label": "Lie groups",
+      "theorem": "Finite-dimensional representations of a Lie group are related to representations of its Lie algebra via differentiation."
+    },
+    {
+      "id": "e28",
+      "source": "algnt",
+      "target": "elliptic",
+      "label": "Mordell-Weil",
+      "theorem": "The Mordell–Weil theorem: the group of rational points on an elliptic curve over a number field is finitely generated."
+    },
+    {
+      "id": "e29",
+      "source": "ergodic",
+      "target": "markov",
+      "label": "stationary",
+      "theorem": "A stationary distribution of a Markov chain is an invariant measure; ergodicity implies uniqueness and mixing."
+    },
+    {
+      "id": "e30",
+      "source": "spectral",
+      "target": "elliptic-pde",
+      "label": "eigenvalues",
+      "theorem": "Eigenvalues of the Laplacian on a domain determine frequencies of vibration and appear in elliptic spectral theory."
+    },
+    {
+      "id": "e31",
+      "source": "measure",
+      "target": "lebesgue",
+      "label": "defines integral",
+      "theorem": "Lebesgue integration is defined with respect to a measure on a measurable space."
+    },
+    {
+      "id": "e32",
+      "source": "lebesgue",
+      "target": "lp-spaces",
+      "label": "builds",
+      "theorem": "$L^p$ spaces are spaces of equivalence classes of measurable functions integrable with respect to μ."
+    },
+    {
+      "id": "e33",
+      "source": "lp-spaces",
+      "target": "hilbert",
+      "label": "$L^2$ case",
+      "theorem": "When $p=2$, $L^2$ is a Hilbert space with inner product $\\langle f,g\\rangle = \\int f\\bar{g}\\,d\\mu$."
+    },
+    {
+      "id": "e34",
+      "source": "hilbert",
+      "target": "banach",
+      "label": "complete normed",
+      "theorem": "Every Hilbert space is a Banach space; functional analysis studies operators on such spaces."
+    },
+    {
+      "id": "e35",
+      "source": "fol",
+      "target": "completeness",
+      "label": "leads to",
+      "theorem": "Soundness and completeness connect syntactic provability with semantic validity in first-order logic."
+    },
+    {
+      "id": "e36",
+      "source": "completeness",
+      "target": "compactness",
+      "label": "implies",
+      "theorem": "Completeness together with König's lemma yields the compactness theorem for first-order logic."
+    },
+    {
+      "id": "e37",
+      "source": "compactness",
+      "target": "model-th",
+      "label": "tool",
+      "theorem": "Compactness is the engine behind nonstandard models, ultraproducts, and many model-theoretic constructions."
+    },
+    {
+      "id": "e38",
+      "source": "category",
+      "target": "functors",
+      "label": "maps between",
+      "theorem": "Functors are the structure-preserving maps between categories."
+    },
+    {
+      "id": "e39",
+      "source": "functors",
+      "target": "natural",
+      "label": "2-morphisms",
+      "theorem": "Natural transformations are morphisms in the functor category $[\\mathcal{C}, \\mathcal{D}]$."
+    },
+    {
+      "id": "e40",
+      "source": "limits",
+      "target": "adjoints",
+      "label": "preservation",
+      "theorem": "Right adjoints preserve limits; left adjoints preserve colimits."
+    },
+    {
+      "id": "e41",
+      "source": "adjoints",
+      "target": "yoneda",
+      "label": "represented by",
+      "theorem": "The Yoneda embedding is fully faithful; representable functors are central to adjunctions."
+    },
+    {
+      "id": "e42",
+      "source": "covering",
+      "target": "fund-group",
+      "label": "correspondence",
+      "theorem": "Connected covering spaces of $X$ correspond to subgroups of $\\pi_1(X,x_0)$."
+    },
+    {
+      "id": "e43",
+      "source": "cw",
+      "target": "homology",
+      "label": "computes",
+      "theorem": "Cellular homology of a CW complex computes singular homology and is efficient for computations."
+    },
+    {
+      "id": "e44",
+      "source": "homology",
+      "target": "sing-cohom",
+      "label": "dual",
+      "theorem": "Singular cohomology is homotopy invariant and pairs with homology via the Kronecker product."
+    },
+    {
+      "id": "e45",
+      "source": "sing-cohom",
+      "target": "de-rham",
+      "label": "de Rham theorem",
+      "theorem": "**de Rham:** $H^k_{dR}(M) \\cong H^k_{sing}(M; \\mathbb{R})$ for smooth manifolds $M$."
+    },
+    {
+      "id": "e46",
+      "source": "manifolds",
+      "target": "de-rham",
+      "label": "forms on",
+      "theorem": "de Rham cohomology is defined using differential forms on smooth manifolds."
+    },
+    {
+      "id": "e47",
+      "source": "rings",
+      "target": "commalg",
+      "label": "specializes",
+      "theorem": "Commutative algebra studies commutative rings and their modules as in algebraic geometry."
+    },
+    {
+      "id": "e48",
+      "source": "homological",
+      "target": "rings",
+      "label": "Ext & Tor",
+      "theorem": "Homological algebra measures failure of exactness via derived functors of Hom and tensor."
+    },
+    {
+      "id": "e49",
+      "source": "hilbert",
+      "target": "rep-theory",
+      "label": "unitary reps",
+      "theorem": "Peter–Weyl and representation theory of compact groups act on Hilbert spaces of $L^2$ functions.",
+      "weight": 3
+    },
+    {
+      "id": "e50",
+      "source": "homological",
+      "target": "homology",
+      "label": "singular",
+      "theorem": "Singular homology is computed via chain complexes; homological algebra provides the algebraic language.",
+      "weight": 3
+    },
+    {
+      "id": "e51",
+      "source": "homological",
+      "target": "cohom",
+      "label": "sheaves",
+      "theorem": "Sheaf cohomology is a derived functor in the abelian category of sheaves of modules.",
+      "weight": 3
+    },
+    {
+      "id": "e52",
+      "source": "category",
+      "target": "homological",
+      "label": "abelian categories",
+      "theorem": "Homological algebra is developed in abelian categories; chain complexes form a functorial framework.",
+      "weight": 3
+    },
+    {
+      "id": "e53",
+      "source": "yoneda",
+      "target": "schemes",
+      "label": "functor of points",
+      "theorem": "The Yoneda philosophy: a scheme is determined by its functor of points on commutative rings.",
+      "weight": 2
+    },
+    {
+      "id": "e54",
+      "source": "topos",
+      "target": "model-th",
+      "label": "internal logic",
+      "theorem": "A topos has an internal higher-order logic; models of theories can be studied via classifying topoi.",
+      "weight": 2
+    },
+    {
+      "id": "e55",
+      "source": "type-th",
+      "target": "category",
+      "label": "categorical semantics",
+      "theorem": "Cartesian closed categories and toposes provide semantics for typed λ-calculus and dependent type theory.",
+      "weight": 3
+    },
+    {
+      "id": "e56",
+      "source": "de-rham",
+      "target": "sobolev",
+      "label": "Sobolev embeddings",
+      "theorem": "Sobolev spaces control regularity of functions whose derivatives appear in de Rham and PDE theory.",
+      "weight": 2
+    },
+    {
+      "id": "e57",
+      "source": "bundles",
+      "target": "rep-theory",
+      "label": "associated",
+      "theorem": "Vector bundles associated to group representations; linkage between linear algebra and topology.",
+      "weight": 2
+    },
+    {
+      "id": "e58",
+      "source": "tensors",
+      "target": "bundles",
+      "label": "local coefficients",
+      "theorem": "Tensor products assemble local data into global sections; vector bundles are families of vector spaces.",
+      "weight": 2
+    },
+    {
+      "id": "e59",
+      "source": "galois",
+      "target": "model-th",
+      "label": "fields",
+      "theorem": "Model theory of fields: quantifier elimination for algebraically closed fields, connections to Galois theory.",
+      "weight": 2
+    },
+    {
+      "id": "e60",
+      "source": "complex",
+      "target": "fourier",
+      "label": "transform on",
+      "theorem": "The Fourier transform is a unitary operator on $L^2$; holomorphic functions satisfy Cauchy–Riemann equations.",
+      "weight": 2
+    },
+    {
+      "id": "e61",
+      "source": "distributions",
+      "target": "sobolev",
+      "label": "weak derivatives",
+      "theorem": "Sobolev spaces and distributions unify weak formulations of PDEs.",
+      "weight": 2
+    },
+    {
+      "id": "e62",
+      "source": "riemannian",
+      "target": "elliptic-pde",
+      "label": "Laplace–Beltrami",
+      "theorem": "The Laplace–Beltrami operator on a Riemannian manifold generalizes the Laplacian in spectral geometry.",
+      "weight": 2
+    },
+    {
+      "id": "e63",
+      "source": "lie-alg",
+      "target": "manifolds",
+      "label": "Lie groups",
+      "theorem": "Lie algebras are the infinitesimal generators of Lie group actions on manifolds.",
+      "weight": 2
+    },
+    {
+      "id": "e64",
+      "source": "category",
+      "target": "groups",
+      "label": "one-object",
+      "theorem": "A group is the same data as a category with one object and invertible morphisms.",
+      "weight": 2
+    },
+    {
+      "id": "e65",
+      "source": "godel-inc",
+      "target": "galois",
+      "label": "undecidability",
+      "theorem": "Gödel's ideas on undecidability echo in algorithmic questions about Galois groups and diophantine problems.",
+      "weight": 2
+    },
+    {
+      "id": "e66",
+      "source": "measure",
+      "target": "brownian",
+      "label": "Wiener measure",
+      "theorem": "Brownian motion is built from a probability measure on path space; stochastic analysis uses measure theory.",
+      "weight": 2
+    },
+    {
+      "id": "e67",
+      "source": "functors",
+      "target": "galois",
+      "label": "Galois connections",
+      "theorem": "Galois correspondences are adjunctions between posets of subgroups and subfields.",
+      "weight": 2
+    },
+    {
+      "id": "e68",
+      "source": "limits",
+      "target": "schemes",
+      "label": "fiber products",
+      "theorem": "Fiber products of schemes are pullbacks in the category of schemes; fundamental in intersection theory.",
+      "weight": 2
+    }
+  ]
+}
