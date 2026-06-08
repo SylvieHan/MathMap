@@ -20,10 +20,10 @@ if not exist node_modules (
 
 echo.
 echo   MathMap editor starting...
-echo   Browser: http://localhost:5173
+echo   Browser: http://127.0.0.1:5173
 echo   Keep this window open while editing. Close it to stop.
 echo.
 
-start "" "http://localhost:5173"
+start "" "http://127.0.0.1:5173"
 call npm run dev
 pause
