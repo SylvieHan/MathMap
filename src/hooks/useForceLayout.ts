@@ -10,27 +10,36 @@ import {
   primarySimNodeIdsForDragTarget,
   simNodeIdsForDragTarget,
   simNodesToCircleItems,
+  stepContainerDragPhysics,
+  stepContainerReleasePhysics,
+  stepSubfieldLinkSprings,
+  stepSubfieldReleaseSprings,
   stepTensionSprings,
   syncChildrenToFields,
   zeroVelocities,
   type ForceSimNode,
 } from '../utils/forceLayout';
 
+export interface BeginDragOptions {
+  /** Keep d3 field-field simulation alive (fit-all field drag). */
+  keepFieldSim?: boolean;
+}
+
 export interface MoveDragOptions {
-  /** Shift-drag: pull connected concepts on springs. */
+  /** Shift-drag: pull connected nodes on springs. */
   tensionLinks?: boolean;
 }
 
 export interface EndDragOptions {
   /** Run spring settle after releasing a concept. */
   releaseTension?: boolean;
+  /** Run interior momentum settle after releasing a field or subfield. */
+  releaseContainer?: boolean;
   releaseVelocity?: { vx: number; vy: number };
   onSettled?: () => void;
 }
 
 const ENTRY_ALPHA = 0.38;
-/** How quickly children catch up when dragging a field or subfield (0–1 per move). */
-const CHILD_FOLLOW_SPRING = 0.48;
 
 export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const [layout, setLayout] = useState<CircleItem[]>([]);
@@ -39,17 +48,21 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const simRef = useRef<Simulation<ForceSimNode, SimLink> | null>(null);
   const simNodesRef = useRef<ForceSimNode[]>([]);
   const dragOriginsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const dragFollowOffsetsRef = useRef<Map<string, { dx: number; dy: number }>>(new Map());
+  const dragChildIdsRef = useRef<string[]>([]);
+  const dragChildWorldRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const dragPrimaryIdRef = useRef<string | null>(null);
+  const lastContainerPosRef = useRef<{ x: number; y: number } | null>(null);
   const tensionVelocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
   const tensionRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const isTensionSettlingRef = useRef(false);
+  const keepFieldSimRef = useRef(false);
+  const skipSyncChildIdsRef = useRef<Set<string>>(new Set());
 
   const graphKey = `${nodes.length}:${edges.length}:${nodes.map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.pinned}`).join(';')}`;
 
   const publishLayout = useCallback(() => {
-    syncChildrenToFields(simNodesRef.current);
+    syncChildrenToFields(simNodesRef.current, skipSyncChildIdsRef.current);
     setLayout(simNodesToCircleItems(simNodesRef.current));
   }, []);
 
@@ -89,6 +102,81 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       n.relDy = n.y - f.y;
     }
   }, []);
+
+  const runContainerSettle = useCallback(
+    (fieldId: string, childIds: string[], onSettled?: () => void) => {
+      cancelTensionSettle();
+      isTensionSettlingRef.current = true;
+      setIsTensionSettling(true);
+
+      const tick = () => {
+        const moving = stepContainerReleasePhysics(
+          simNodesRef.current,
+          fieldId,
+          childIds,
+          tensionVelocitiesRef.current,
+        );
+        syncRelOffsetsFromField();
+        publishLayout();
+
+        if (moving) {
+          tensionRafRef.current = requestAnimationFrame(tick);
+        } else {
+          tensionRafRef.current = null;
+          tensionVelocitiesRef.current.clear();
+          isTensionSettlingRef.current = false;
+          setIsTensionSettling(false);
+          syncChildrenToFields(simNodesRef.current);
+          publishLayout();
+          reheat(0.22);
+          onSettled?.();
+        }
+      };
+
+      tensionRafRef.current = requestAnimationFrame(tick);
+    },
+    [cancelTensionSettle, publishLayout, reheat, syncRelOffsetsFromField],
+  );
+
+  const runSubfieldSettle = useCallback(
+    (subfieldSimId: string, releaseVelocity: { vx: number; vy: number }, onSettled?: () => void) => {
+      cancelTensionSettle();
+      const existing = tensionVelocitiesRef.current.get(subfieldSimId) ?? { vx: 0, vy: 0 };
+      tensionVelocitiesRef.current.set(subfieldSimId, {
+        vx: existing.vx + releaseVelocity.vx,
+        vy: existing.vy + releaseVelocity.vy,
+      });
+
+      isTensionSettlingRef.current = true;
+      setIsTensionSettling(true);
+
+      const tick = () => {
+        const moving = stepSubfieldReleaseSprings(
+          simNodesRef.current,
+          edges,
+          tensionVelocitiesRef.current,
+        );
+        syncRelOffsetsFromField();
+        publishLayout();
+
+        if (moving) {
+          tensionRafRef.current = requestAnimationFrame(tick);
+        } else {
+          tensionRafRef.current = null;
+          tensionVelocitiesRef.current.clear();
+          isTensionSettlingRef.current = false;
+          setIsTensionSettling(false);
+          syncChildrenToFields(simNodesRef.current);
+          publishLayout();
+          reheat(0.22);
+          onSettled?.();
+        }
+      };
+
+      tensionRafRef.current = requestAnimationFrame(tick);
+    },
+    [cancelTensionSettle, edges, publishLayout, reheat, syncRelOffsetsFromField],
+  );
 
   const runTensionSettle = useCallback(
     (conceptId: string, releaseVelocity: { vx: number; vy: number }, onSettled?: () => void) => {
@@ -139,8 +227,10 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     const { simNodes, fieldNodes, fieldLinks } = buildForceGraph(nodes, edges);
     simNodesRef.current = simNodes;
     dragOriginsRef.current.clear();
-    dragFollowOffsetsRef.current.clear();
+    dragChildIdsRef.current = [];
+    dragChildWorldRef.current.clear();
     dragPrimaryIdRef.current = null;
+    lastContainerPosRef.current = null;
     tensionVelocitiesRef.current.clear();
     isDraggingRef.current = false;
 
@@ -148,8 +238,9 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
     const sim = createFieldSimulation(fieldNodes, fieldLinks);
     sim.on('tick', () => {
-      if (isDraggingRef.current || isTensionSettlingRef.current) return;
-      syncChildrenToFields(simNodesRef.current);
+      if (isTensionSettlingRef.current) return;
+      if (isDraggingRef.current && !keepFieldSimRef.current) return;
+      syncChildrenToFields(simNodesRef.current, skipSyncChildIdsRef.current);
       publishLayout();
     });
     sim.on('end', () => {
@@ -172,9 +263,10 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   }, [graphKey, nodes, edges, publishLayout, cancelTensionSettle]);
 
   const beginDragGroup = useCallback(
-    (target: DragTarget) => {
+    (target: DragTarget, options?: BeginDragOptions) => {
       cancelTensionSettle();
       const simNodes = simNodesRef.current;
+      keepFieldSimRef.current = options?.keepFieldSim ?? false;
       const primaryIds = primarySimNodeIdsForDragTarget(target);
       const groupIds = simNodeIdsForDragTarget(target, simNodes);
       const primaryId = primaryIds[0] ?? null;
@@ -189,22 +281,35 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       dragOriginsRef.current = origins;
       tensionVelocitiesRef.current.clear();
 
-      const followOffsets = new Map<string, { dx: number; dy: number }>();
       if (primaryId && (target.kind === 'field' || target.kind === 'subfield')) {
         const anchor = simNodes.find((sn) => sn.id === primaryId);
-        if (anchor) {
-          for (const id of groupIds) {
-            if (primaryIds.includes(id)) continue;
-            const n = simNodes.find((sn) => sn.id === id);
-            if (!n) continue;
-            followOffsets.set(id, { dx: n.x - anchor.x, dy: n.y - anchor.y });
-          }
+        const childIds = groupIds.filter((id) => !primaryIds.includes(id));
+        dragChildIdsRef.current = childIds;
+        const world = new Map<string, { x: number; y: number }>();
+        for (const id of childIds) {
+          const n = simNodes.find((sn) => sn.id === id);
+          if (n) world.set(id, { x: n.x, y: n.y });
         }
+        dragChildWorldRef.current = world;
+        skipSyncChildIdsRef.current = new Set(childIds);
+        lastContainerPosRef.current = anchor ? { x: anchor.x, y: anchor.y } : null;
+      } else {
+        dragChildIdsRef.current = [];
+        dragChildWorldRef.current.clear();
+        skipSyncChildIdsRef.current = new Set();
+        lastContainerPosRef.current = null;
       }
-      dragFollowOffsetsRef.current = followOffsets;
 
       isDraggingRef.current = true;
-      stopSimulation();
+      if (keepFieldSimRef.current) {
+        const sim = simRef.current;
+        if (sim) {
+          setIsSettling(true);
+          sim.alpha(0.48).restart();
+        }
+      } else {
+        stopSimulation();
+      }
     },
     [cancelTensionSettle, stopSimulation],
   );
@@ -226,15 +331,23 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       }
 
       const anchor = primaryId ? simNodes.find((sn) => sn.id === primaryId) : null;
-      if (anchor && dragFollowOffsetsRef.current.size > 0) {
-        for (const [id, off] of dragFollowOffsetsRef.current) {
-          const n = simNodes.find((sn) => sn.id === id);
-          if (!n) continue;
-          const tx = anchor.x + off.dx;
-          const ty = anchor.y + off.dy;
-          n.x += (tx - n.x) * CHILD_FOLLOW_SPRING;
-          n.y += (ty - n.y) * CHILD_FOLLOW_SPRING;
-        }
+      if (
+        primaryId &&
+        anchor &&
+        (target.kind === 'field' || target.kind === 'subfield') &&
+        dragChildIdsRef.current.length > 0
+      ) {
+        const prev = lastContainerPosRef.current ?? { x: anchor.x, y: anchor.y };
+        const fieldDelta = { dx: anchor.x - prev.x, dy: anchor.y - prev.y };
+        lastContainerPosRef.current = { x: anchor.x, y: anchor.y };
+        stepContainerDragPhysics(
+          simNodes,
+          primaryId,
+          dragChildIdsRef.current,
+          fieldDelta,
+          tensionVelocitiesRef.current,
+          dragChildWorldRef.current,
+        );
       }
 
       if (options?.tensionLinks && target.kind === 'concept') {
@@ -245,6 +358,17 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           nodes,
           tensionVelocitiesRef.current,
         );
+      } else if (options?.tensionLinks && target.kind === 'subfield' && primaryId) {
+        stepSubfieldLinkSprings(
+          simNodes,
+          primaryId,
+          edges,
+          tensionVelocitiesRef.current,
+        );
+      }
+
+      if (keepFieldSimRef.current) {
+        simRef.current?.tick();
       }
 
       syncRelOffsetsFromField();
@@ -285,18 +409,63 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       }
 
       dragOriginsRef.current.clear();
-      dragFollowOffsetsRef.current.clear();
+      const containerChildIds = [...dragChildIdsRef.current];
+      const containerFieldId =
+        target?.kind === 'field'
+          ? target.fieldId
+          : target?.kind === 'subfield'
+            ? target.fieldId
+            : null;
+      dragChildIdsRef.current = [];
+      dragChildWorldRef.current.clear();
+      skipSyncChildIdsRef.current = new Set();
+      keepFieldSimRef.current = false;
+      lastContainerPosRef.current = null;
       dragPrimaryIdRef.current = null;
       isDraggingRef.current = false;
 
-      const releaseTension =
-        options?.releaseTension && target?.kind === 'concept';
+      const releaseContainer =
+        options?.releaseContainer &&
+        containerFieldId &&
+        (target?.kind === 'field' || target?.kind === 'subfield');
+      const hasContainerMotion = [...tensionVelocitiesRef.current.values()].some(
+        (v) => Math.hypot(v.vx, v.vy) > 0.08,
+      );
 
-      if (releaseTension) {
+      if (releaseContainer && hasContainerMotion) {
+        syncRelOffsetsFromField();
+        publishLayout();
+        const afterContainer = () => {
+          if (options?.releaseTension && target?.kind === 'subfield') {
+            runSubfieldSettle(
+              `${target.fieldId}__sf__${target.subfieldKey}`,
+              options.releaseVelocity ?? { vx: 0, vy: 0 },
+              options.onSettled,
+            );
+          } else {
+            options?.onSettled?.();
+          }
+        };
+        runContainerSettle(containerFieldId, containerChildIds, afterContainer);
+        return;
+      }
+
+      if (options?.releaseTension && target?.kind === 'concept') {
         syncRelOffsetsFromField();
         publishLayout();
         runTensionSettle(
           target.nodeId,
+          options.releaseVelocity ?? { vx: 0, vy: 0 },
+          options.onSettled,
+        );
+        return;
+      }
+
+      if (options?.releaseTension && target?.kind === 'subfield') {
+        syncRelOffsetsFromField();
+        publishLayout();
+        runSubfieldSettle(
+          `${target.fieldId}__sf__${target.subfieldKey}`,
           options.releaseVelocity ?? { vx: 0, vy: 0 },
           options.onSettled,
         );
@@ -309,7 +478,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       reheat(0.28);
       options?.onSettled?.();
     },
-    [publishLayout, reheat, runTensionSettle, syncRelOffsetsFromField],
+    [publishLayout, reheat, runContainerSettle, runSubfieldSettle, runTensionSettle, syncRelOffsetsFromField],
   );
 
   return {

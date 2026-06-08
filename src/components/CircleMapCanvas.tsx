@@ -3,7 +3,12 @@ import type { MapEdge, MapNode } from '../types';
 import { getSubfieldKey, zoomToDetailLevel, type CircleItem, type DetailLevel } from '../utils/circleLayout';
 import { clampInsideField } from '../utils/forceLayout';
 import { useForceLayout } from '../hooks/useForceLayout';
-import { buildRenderedEdges, edgeTouchesConcept, type RenderedEdge } from '../utils/edgeDisplay';
+import {
+  buildRenderedEdges,
+  centerEdgeEndpoints,
+  edgeTouchesConcept,
+  type RenderedEdge,
+} from '../utils/edgeDisplay';
 import { hitTestRenderedEdge } from '../utils/edgeHitTest';
 import { animateTransform, runMomentum, type Transform2D } from '../utils/animate';
 import { pinchWheelZoomFactor, zoomTransformAtPoint } from '../utils/wheelZoom';
@@ -228,13 +233,16 @@ export function CircleMapCanvas({
     [visibleItems],
   );
 
-  const conceptPositions = useMemo(() => {
-    const m = new Map<string, { x: number; y: number }>();
+  const conceptCircles = useMemo(() => {
+    const m = new Map<string, { x: number; y: number; r: number }>();
     for (const it of layout) {
-      if (it.kind === 'concept') m.set(it.id, { x: it.x, y: it.y });
+      if (it.kind === 'concept') m.set(it.id, { x: it.x, y: it.y, r: it.r });
     }
     for (const it of displayItems) {
-      if (it.kind === 'concept') m.set(it.id, { x: it.x, y: it.y });
+      if (it.kind === 'concept') {
+        const prev = m.get(it.id);
+        m.set(it.id, { x: it.x, y: it.y, r: it.r ?? prev?.r ?? 8 });
+      }
     }
     return m;
   }, [displayItems, layout]);
@@ -247,10 +255,10 @@ export function CircleMapCanvas({
         layout,
         level,
         drill,
-        conceptPositions,
+        conceptCircles,
         visibleConceptIds,
       ),
-    [edges, nodes, layout, level, drill, conceptPositions, visibleConceptIds],
+    [edges, nodes, layout, level, drill, conceptCircles, visibleConceptIds],
   );
 
   const selectedBundleId =
@@ -299,7 +307,7 @@ export function CircleMapCanvas({
     return m;
   }, [layout]);
 
-  const tensionConceptIds = useMemo(() => {
+  const dragTouchedConceptIds = useMemo(() => {
     if (!tensionTarget) return null;
     if (tensionTarget.kind === 'concept') return new Set([tensionTarget.nodeId]);
     if (tensionTarget.kind === 'field') {
@@ -694,7 +702,9 @@ export function CircleMapCanvas({
           d.mode = 'node';
           setTensionTarget(d.dragTarget);
           setIsForceDragging(true);
-          beginDragGroup(d.dragTarget);
+          beginDragGroup(d.dragTarget, {
+            keepFieldSim: d.dragTarget.kind === 'field' && !drill.fieldId,
+          });
         } else {
           d.mode = 'pan';
           setIsPanning(true);
@@ -734,7 +744,8 @@ export function CircleMapCanvas({
         d.lastOffsetY = offsetY;
         d.lastMoveT = now;
         moveDragGroup(d.dragTarget, offsetX, offsetY, {
-          tensionLinks: d.dragTarget.kind === 'concept',
+          tensionLinks:
+            d.dragTarget.kind === 'concept' || d.dragTarget.kind === 'subfield',
         });
       }
 
@@ -784,16 +795,22 @@ export function CircleMapCanvas({
         svgRef.current
       ) {
         const isConceptTension = d.dragTarget.kind === 'concept';
+        const isSubfieldTension = d.dragTarget.kind === 'subfield';
+        const isContainerDrag =
+          d.dragTarget.kind === 'field' || d.dragTarget.kind === 'subfield';
         setIsForceDragging(false);
         endDragGroup(d.dragTarget, {
-          releaseTension: isConceptTension,
+          releaseTension: isConceptTension || isSubfieldTension,
+          releaseContainer: isContainerDrag,
           releaseVelocity: {
             vx: (d.releaseVx ?? 0) * 2.4,
             vy: (d.releaseVy ?? 0) * 2.4,
           },
           onSettled: () => setTensionTarget(null),
         });
-        if (!isConceptTension) setTensionTarget(null);
+        if (!isConceptTension && !isSubfieldTension && !isContainerDrag) {
+          setTensionTarget(null);
+        }
       } else if (d.mode === 'pan') {
         const elapsed = Math.max(1, performance.now() - (d.lastPanT ?? performance.now()));
         const vx = ((e.clientX - (d.lastPanX ?? e.clientX)) / elapsed) * 16;
@@ -1114,12 +1131,55 @@ export function CircleMapCanvas({
         )?.label
       : null;
 
-  const tensionEdges = useMemo(() => {
-    if (!tensionConceptIds) return [];
-    return renderedEdges.filter((e) =>
-      e.conceptIds.some((id) => tensionConceptIds.has(id)),
-    );
-  }, [tensionConceptIds, renderedEdges]);
+  const edgeTouchesDragTarget = useCallback(
+    (edge: RenderedEdge) => {
+      if (!tensionActive || !dragTouchedConceptIds) return false;
+      return edge.conceptIds.some((id) => dragTouchedConceptIds.has(id));
+    },
+    [tensionActive, dragTouchedConceptIds],
+  );
+
+  const resolveEdgeLine = useCallback(
+    (
+      edge: RenderedEdge,
+      isTensionLine: boolean,
+    ): { x1: number; y1: number; x2: number; y2: number } => {
+      if (!isTensionLine) {
+        return { x1: edge.x1, y1: edge.y1, x2: edge.x2, y2: edge.y2 };
+      }
+
+      if (edge.lod === 'concept') {
+        const rep = edge.sourceEdge;
+        const src = conceptCircles.get(rep.source);
+        const tgt = conceptCircles.get(rep.target);
+        if (src && tgt) return centerEdgeEndpoints(src, tgt);
+      }
+
+      if (edge.lod === 'subfield') {
+        const rep = edge.sourceEdge;
+        const srcItem = layout.find((it) => it.kind === 'concept' && it.id === rep.source);
+        const tgtItem = layout.find((it) => it.kind === 'concept' && it.id === rep.target);
+        if (srcItem?.subfieldKey && tgtItem?.subfieldKey) {
+          const sfA = layout.find(
+            (it) =>
+              it.kind === 'subfield' &&
+              it.fieldId === srcItem.fieldId &&
+              it.subfieldKey === srcItem.subfieldKey,
+          );
+          const sfB = layout.find(
+            (it) =>
+              it.kind === 'subfield' &&
+              it.fieldId === tgtItem.fieldId &&
+              it.subfieldKey === tgtItem.subfieldKey,
+          );
+          if (sfA && sfB) return centerEdgeEndpoints(sfA, sfB);
+        }
+      }
+
+      return { x1: edge.x1, y1: edge.y1, x2: edge.x2, y2: edge.y2 };
+    },
+    [conceptCircles, layout],
+  );
 
   return (
     <div
@@ -1180,7 +1240,7 @@ export function CircleMapCanvas({
           <marker
             id="tension-arrow"
             viewBox="0 0 10 10"
-            refX="8"
+            refX="10"
             refY="5"
             markerWidth="5"
             markerHeight="5"
@@ -1206,7 +1266,11 @@ export function CircleMapCanvas({
 
           {renderedEdges.map((edge) => {
               const rep = edge.sourceEdge;
-              const isTension = tensionEdges.some((te) => te.sourceEdge.id === rep.id);
+              const isDragLinked = edgeTouchesDragTarget(edge);
+              const isTensionLine =
+                isDragLinked &&
+                (tensionTarget?.kind === 'concept' || tensionTarget?.kind === 'subfield');
+              const line = resolveEdgeLine(edge, isTensionLine);
               const searchDimmed =
                 highlightIds &&
                 !edge.conceptIds.some((id) => highlightIds.has(id));
@@ -1217,19 +1281,21 @@ export function CircleMapCanvas({
               const isEdgeSelected =
                 selectedBundleId === edge.id || (selectedEdgeIds?.has(rep.id) ?? false);
               const edgeActive =
-                isTension ||
+                isDragLinked ||
                 isEdgeSelected ||
                 hoverEdgeId === rep.id ||
                 nodeHighlighted;
               const highlighted = !searchDimmed && edgeActive;
               const crossField = edge.crossField;
-              const mx = (edge.x1 + edge.x2) / 2;
-              const my = (edge.y1 + edge.y2) / 2;
+              const mx = (line.x1 + line.x2) / 2;
+              const my = (line.y1 + line.y2) / 2;
               const lod = edge.lod;
               const baseOpacity = searchDimmed
                 ? 0.06
-                : isTension
+                : isTensionLine
                   ? 1
+                  : isDragLinked
+                    ? 0.88
                   : highlighted
                     ? 0.92
                     : lod === 'field'
@@ -1239,8 +1305,10 @@ export function CircleMapCanvas({
                         : crossField
                           ? 0.55
                           : 0.65;
-              const width = isTension
+              const width = isTensionLine
                 ? 4
+                : isDragLinked
+                  ? 2.6
                 : highlighted
                   ? 2.8
                   : lod === 'field'
@@ -1253,7 +1321,7 @@ export function CircleMapCanvas({
                 width * 5,
               );
               const dash =
-                isTension || highlighted
+                isTensionLine || isDragLinked || highlighted
                   ? undefined
                   : lod === 'field'
                     ? '8 6'
@@ -1266,26 +1334,26 @@ export function CircleMapCanvas({
               return (
                 <g
                   key={edge.id}
-                  className={`map-edge-group map-edge-lod-${lod}${highlighted ? ' highlighted' : ''}${isTension ? ' tension' : ''}${isEdgeSelected ? ' selected' : ''}`}
+                  className={`map-edge-group map-edge-lod-${lod}${highlighted ? ' highlighted' : ''}${isTensionLine ? ' tension' : ''}${isDragLinked ? ' drag-linked' : ''}${isEdgeSelected ? ' selected' : ''}`}
                 >
                   <line
-                    x1={edge.x1}
-                    y1={edge.y1}
-                    x2={edge.x2}
-                    y2={edge.y2}
+                    x1={line.x1}
+                    y1={line.y1}
+                    x2={line.x2}
+                    y2={line.y2}
                     className="map-edge-hit"
                     stroke="transparent"
                     strokeWidth={hitWidth}
                     vectorEffect="non-scaling-stroke"
                   />
                   <line
-                    x1={edge.x1}
-                    y1={edge.y1}
-                    x2={edge.x2}
-                    y2={edge.y2}
+                    x1={line.x1}
+                    y1={line.y1}
+                    x2={line.x2}
+                    y2={line.y2}
                     className="map-edge"
                     stroke={
-                      isTension || highlighted
+                      isTensionLine || isDragLinked || highlighted
                         ? 'var(--accent)'
                         : crossField
                           ? 'var(--edge-cross)'
@@ -1295,7 +1363,7 @@ export function CircleMapCanvas({
                     strokeOpacity={baseOpacity}
                     vectorEffect="non-scaling-stroke"
                     strokeDasharray={dash}
-                    markerEnd={isTension ? 'url(#tension-arrow)' : undefined}
+                    markerEnd={isTensionLine ? 'url(#tension-arrow)' : undefined}
                   />
                   {highlighted && rep.label && lod === 'concept' && (
                     <g className="map-edge-label">

@@ -29,6 +29,45 @@ export function edgeLod(level: DetailLevel): EdgeLod {
   return 'field';
 }
 
+export interface CircleAnchor {
+  x: number;
+  y: number;
+  r: number;
+}
+
+/** Point on a circle rim toward another center. */
+export function circleRimToward(
+  cx: number,
+  cy: number,
+  r: number,
+  towardX: number,
+  towardY: number,
+): { x: number; y: number } {
+  const dx = towardX - cx;
+  const dy = towardY - cy;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1e-6) return { x: cx + r, y: cy };
+  return { x: cx + (dx / dist) * r, y: cy + (dy / dist) * r };
+}
+
+/** Line endpoints on both circle surfaces (ray center-to-center). */
+export function anchorEdgeEndpoints(
+  a: CircleAnchor,
+  b: CircleAnchor,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const start = circleRimToward(a.x, a.y, a.r, b.x, b.y);
+  const end = circleRimToward(b.x, b.y, b.r, a.x, a.y);
+  return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
+}
+
+/** Center-to-center — used for live tension / force lines during drag. */
+export function centerEdgeEndpoints(
+  a: CircleAnchor,
+  b: CircleAnchor,
+): { x1: number; y1: number; x2: number; y2: number } {
+  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+}
+
 function fieldItem(layout: CircleItem[], fieldId: string): CircleItem | undefined {
   return layout.find((it) => it.kind === 'field' && it.id === fieldId);
 }
@@ -52,19 +91,6 @@ function conceptMeta(
   const item = layout.find((it) => it.kind === 'concept' && it.id === conceptId);
   if (!node?.parentId || !item?.subfieldKey) return null;
   return { fieldId: node.parentId, subfieldKey: item.subfieldKey };
-}
-
-function resolvePoint(
-  layout: CircleItem[],
-  fieldId: string,
-  subfieldKey: string | null,
-): { x: number; y: number } | null {
-  if (subfieldKey) {
-    const sf = subfieldItem(layout, fieldId, subfieldKey);
-    if (sf) return { x: sf.x, y: sf.y };
-  }
-  const field = fieldItem(layout, fieldId);
-  return field ? { x: field.x, y: field.y } : null;
 }
 
 function pickRepresentativeEdge(edges: MapEdge[]): MapEdge {
@@ -96,7 +122,7 @@ function buildConceptLevelEdges(
   layout: CircleItem[],
   level: DetailLevel,
   drill: { fieldId: string | null; subfieldKey: string | null },
-  conceptPositions: Map<string, { x: number; y: number }>,
+  conceptCircles: Map<string, CircleAnchor>,
   visibleConceptIds: Set<string>,
 ): RenderedEdge[] {
   const lod = edgeLod(level);
@@ -112,18 +138,20 @@ function buildConceptLevelEdges(
       if (!visibleConceptIds.has(edge.source) || !visibleConceptIds.has(edge.target)) continue;
     }
 
-    const s = conceptPositions.get(edge.source);
-    const t = conceptPositions.get(edge.target);
+    const s = conceptCircles.get(edge.source);
+    const t = conceptCircles.get(edge.target);
     if (!s || !t) continue;
+
+    const { x1, y1, x2, y2 } = anchorEdgeEndpoints(s, t);
 
     rendered.push({
       id: edge.id,
       sourceEdge: edge,
       bundleEdges: [edge],
-      x1: s.x,
-      y1: s.y,
-      x2: t.x,
-      y2: t.y,
+      x1,
+      y1,
+      x2,
+      y2,
       crossField: isCrossFieldEdge(edge, nodes),
       strength: edgeStrength(edge),
       bundleSize: 1,
@@ -177,9 +205,11 @@ function buildFieldBundleEdges(
   for (const [groupKey, bundle] of bundles) {
     const rep = pickRepresentativeEdge(bundle.edges);
     const [fieldAId, fieldBId] = groupKey.split('~~');
-    const p1 = resolvePoint(layout, fieldAId, null);
-    const p2 = resolvePoint(layout, fieldBId, null);
-    if (!p1 || !p2) continue;
+    const fieldAItem = fieldItem(layout, fieldAId);
+    const fieldBItem = fieldItem(layout, fieldBId);
+    if (!fieldAItem || !fieldBItem) continue;
+
+    const { x1, y1, x2, y2 } = anchorEdgeEndpoints(fieldAItem, fieldBItem);
 
     const fieldA = nodes.find((n) => n.id === fieldAId);
     const fieldB = nodes.find((n) => n.id === fieldBId);
@@ -188,10 +218,10 @@ function buildFieldBundleEdges(
       id: `bundle-${groupKey}`,
       sourceEdge: rep,
       bundleEdges: [...bundle.edges],
-      x1: p1.x,
-      y1: p1.y,
-      x2: p2.x,
-      y2: p2.y,
+      x1,
+      y1,
+      x2,
+      y2,
       crossField: true,
       strength: bundleStrength(bundle.edges),
       bundleSize: bundle.edges.length,
@@ -206,20 +236,102 @@ function buildFieldBundleEdges(
   return rendered;
 }
 
+/** Drilled field at subfields zoom: one bundled line per subfield pair (not per concept). */
+function buildSubfieldBundleEdges(
+  realEdges: MapEdge[],
+  nodes: MapNode[],
+  layout: CircleItem[],
+  drill: { fieldId: string | null; subfieldKey: string | null },
+): RenderedEdge[] {
+  type SubfieldEnd = { fieldId: string; subfieldKey: string };
+  type Bundle = { edges: MapEdge[]; a: SubfieldEnd; b: SubfieldEnd; conceptIds: Set<string> };
+
+  const bundles = new Map<string, Bundle>();
+
+  for (const edge of realEdges) {
+    const a = conceptMeta(nodes, layout, edge.source);
+    const b = conceptMeta(nodes, layout, edge.target);
+    if (!a || !b) continue;
+    if (a.fieldId === b.fieldId && a.subfieldKey === b.subfieldKey) continue;
+    if (!edgePassesDrillFilter(a, b, drill)) continue;
+
+    const endA: SubfieldEnd = { fieldId: a.fieldId, subfieldKey: a.subfieldKey };
+    const endB: SubfieldEnd = { fieldId: b.fieldId, subfieldKey: b.subfieldKey };
+    const groupKey = [
+      `${endA.fieldId}|${endA.subfieldKey}`,
+      `${endB.fieldId}|${endB.subfieldKey}`,
+    ]
+      .sort()
+      .join('~~');
+
+    let bundle = bundles.get(groupKey);
+    if (!bundle) {
+      bundle = { edges: [], a: endA, b: endB, conceptIds: new Set() };
+      bundles.set(groupKey, bundle);
+    }
+    bundle.edges.push(edge);
+    bundle.conceptIds.add(edge.source);
+    bundle.conceptIds.add(edge.target);
+  }
+
+  const rendered: RenderedEdge[] = [];
+
+  for (const [groupKey, bundle] of bundles) {
+    const rep = pickRepresentativeEdge(bundle.edges);
+    const crossField = bundle.a.fieldId !== bundle.b.fieldId;
+
+    const circleA =
+      subfieldItem(layout, bundle.a.fieldId, bundle.a.subfieldKey) ??
+      fieldItem(layout, bundle.a.fieldId);
+    const circleB =
+      subfieldItem(layout, bundle.b.fieldId, bundle.b.subfieldKey) ??
+      fieldItem(layout, bundle.b.fieldId);
+    if (!circleA || !circleB) continue;
+
+    const { x1, y1, x2, y2 } = anchorEdgeEndpoints(circleA, circleB);
+
+    rendered.push({
+      id: `sf-bundle-${groupKey}`,
+      sourceEdge: rep,
+      bundleEdges: [...bundle.edges],
+      x1,
+      y1,
+      x2,
+      y2,
+      crossField,
+      strength: bundleStrength(bundle.edges),
+      bundleSize: bundle.edges.length,
+      lod: 'subfield',
+      conceptIds: [...bundle.conceptIds],
+      fieldAId: bundle.a.fieldId,
+      fieldBId: bundle.b.fieldId,
+      label: crossField ? undefined : rep.label,
+    });
+  }
+
+  return rendered;
+}
+
 export function buildRenderedEdges(
   edges: MapEdge[],
   nodes: MapNode[],
   layout: CircleItem[],
   level: DetailLevel,
   drill: { fieldId: string | null; subfieldKey: string | null },
-  conceptPositions: Map<string, { x: number; y: number }>,
+  conceptCircles: Map<string, CircleAnchor>,
   visibleConceptIds: Set<string>,
 ): RenderedEdge[] {
   const realEdges = edges.filter((e) => !isTagEdgeId(e.id));
-  const useFieldBundles = level === 'fields' && !drill.fieldId;
+  /** Fit-all (no drill): always one bundled link per field pair, at any zoom. */
+  const useFieldBundles = !drill.fieldId;
+  const useSubfieldBundles = !!drill.fieldId && level !== 'concepts';
 
   if (useFieldBundles) {
     return buildFieldBundleEdges(realEdges, nodes, layout);
+  }
+
+  if (useSubfieldBundles) {
+    return buildSubfieldBundleEdges(realEdges, nodes, layout, drill);
   }
 
   return buildConceptLevelEdges(
@@ -228,7 +340,7 @@ export function buildRenderedEdges(
     layout,
     level,
     drill,
-    conceptPositions,
+    conceptCircles,
     visibleConceptIds,
   );
 }

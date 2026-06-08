@@ -1,33 +1,16 @@
-# TODO — Edge arrows (fix tomorrow)
+# Edge arrows — rim anchoring
 
-**Status:** Not started. No code changes yet (noted 2026-06-08).
+**Status:** Done (2026-06-09).
 
-## Problem
+## Behavior
 
-Connection arrows/lines currently meet at the **center** of circles — especially wrong for **large** balls (fields, subfields), where the line looks like it pierces through the middle instead of attaching to the rim.
+- Line endpoints sit on **circle rims** (ray from center to the other node), not centroids.
+- Fit-all field bundles use each field’s `r` from layout.
+- Zoomed-in concept edges use live position + radius from `conceptCircles` (layout + force layout).
+- Tension arrow marker `refX` aligned so the tip meets the rim endpoint.
+- Hit-testing uses the same rim-anchored segment.
 
-## Desired behavior
+## Implementation
 
-- Arrows should **link to the balls** — line endpoints on the **edge** of each circle (where the ray from center to the other node hits the circumference).
-- Should work for **concepts** (small balls) and **larger** containers (fields/subfields) at different zoom LODs.
-- Arrowheads should sit on/near the surface, not float toward the centroid.
-
-## Progress (2026-06-08)
-
-- Fit-all uses field-center bundles only; zoomed-in uses one line per concept connection.
-- Bundle click opens full link list in sidebar (`edge-bundle` selection).
-- Hyperlink navigation: click concept names in panel to animate camera (`focusNode`).
-
-## Still to do
-
-- `src/utils/edgeDisplay.ts` — anchor line endpoints on **circle rims**, not centers (`x1`, `y1`, `x2`, `y2`)
-- `src/components/CircleMapCanvas.tsx` — edge rendering / tension lines
-- May need circle radius per endpoint from `CircleItem` / `conceptPositions` / layout
-
-## Related
-
-- Shift-drag tension springs use the same edge endpoints — fix should improve tension visuals too.
-
----
-
-*Sylvie: pick this up tomorrow; arrows are a known follow-up.*
+- `src/utils/edgeDisplay.ts` — `circleRimToward`, `anchorEdgeEndpoints`, used in `buildFieldBundleEdges` and `buildConceptLevelEdges`
+- `src/components/CircleMapCanvas.tsx` — `conceptCircles` map (x, y, r) passed to `buildRenderedEdges`
