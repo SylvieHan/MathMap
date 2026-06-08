@@ -56,25 +56,16 @@ export function Toolbar({
         {readOnly && !isPublishedSite() && <span className="readonly-badge">View only</span>}
       </div>
 
-      <SearchBar
-        query={searchQuery}
-        onChange={onSearchChange}
-        nodes={nodes}
-        onHighlight={onSearchHighlight}
-      />
+      <div className="toolbar-center">
+        <SearchBar
+          query={searchQuery}
+          onChange={onSearchChange}
+          nodes={nodes}
+          onHighlight={onSearchHighlight}
+        />
+      </div>
 
       <div className="toolbar-right">
-        <button
-          type="button"
-          className="toolbar-priority-btn"
-          onClick={onOpenSettings}
-          title="LaTeX packages and rendering settings"
-        >
-          LaTeX settings
-        </button>
-        <button type="button" className="theme-toggle" onClick={onToggleTheme} title="Toggle theme">
-          {theme === 'light' ? '☾' : '☀'}
-        </button>
         {!readOnly && (
           <>
             <button type="button" onClick={onNewMap} title="Start a blank map">
@@ -104,6 +95,16 @@ export function Toolbar({
             </label>
           </>
         )}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="LaTeX packages and rendering settings"
+        >
+          LaTeX settings
+        </button>
+        <button type="button" className="theme-toggle" onClick={onToggleTheme} title="Toggle theme">
+          {theme === 'light' ? '☾' : '☀'}
+        </button>
       </div>
     </header>
   );

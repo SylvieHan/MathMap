@@ -44,6 +44,8 @@ export interface MapMeta {
   author: string;
   createdAt: string;
   seedVersion?: number;
+  /** Bump when local editor storage rules change (e.g. drop auto-demo seed). */
+  localEditorProtocol?: number;
   /** LaTeX package names enabled for math rendering (e.g. amsmath, amssymb) */
   latexPackages?: string[];
 }

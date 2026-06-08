@@ -1,41 +1,21 @@
 import { useEffect, useState } from 'react';
-import { loadMap, saveMap, saveBlob } from '../db';
-import { createSeedMap, createNode, createEdge, createEmptyMap } from '../data/maps';
-import { SEED_VERSION } from '../data/richSeed';
+import { loadMap, saveMap } from '../db';
+import { createEmptyMap, createNode, createEdge } from '../data/maps';
 import { mergeMaps, replaceMap } from '../utils/merge';
 import { downloadMathMap, parseMathMapFile, importMathMapToDb } from '../utils/exportImport';
 import { colorForNode } from '../utils/colors';
 import type { MathMap, MapEdge, MapNode } from '../types';
 import { getBundledMapUrl, isReadOnlyMode } from '../utils/siteMode';
 
-const PLACEHOLDER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">
-  <rect width="120" height="80" fill="#e2e8f0"/>
-  <text x="60" y="38" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">π</text>
-  <text x="60" y="56" text-anchor="middle" font-family="system-ui,sans-serif" font-size="9" fill="#94a3b8">placeholder</text>
-</svg>`;
+/** Local editor: blank map on first open; rich seed is only for published bundled-map.json. */
+const LOCAL_EDITOR_PROTOCOL = 1;
 
-async function createSeedMapWithAssets() {
-  const blobId = 'seed-placeholder-image';
-  await saveBlob(blobId, new Blob([PLACEHOLDER_SVG], { type: 'image/svg+xml' }));
-  const seed = createSeedMap();
-  const primes = seed.nodes.find((n) => n.id === 'primes');
-  if (primes) {
-    primes.content = [
-      {
-        id: 'primes-text',
-        type: 'text',
-        markdown:
-          'A **prime** is a natural number greater than 1 with no positive divisors other than 1 and itself.\n\nThe fundamental theorem of arithmetic states every integer factors uniquely into primes.',
-      },
-      {
-        id: 'primes-img',
-        type: 'image',
-        blobId,
-        filename: 'placeholder.svg',
-      },
-    ];
-  }
-  return seed;
+function isOldAutoDemoSeed(map: MathMap): boolean {
+  return (
+    map.meta.title === 'My MathMap' &&
+    (map.meta.seedVersion ?? 0) >= 2 &&
+    map.nodes.some((n) => n.id === 'fld-nt')
+  );
 }
 
 export function useMap() {
@@ -66,14 +46,16 @@ export function useMap() {
       }
 
       let stored = await loadMap();
-      const needsFreshSeed =
-        !stored ||
-        ((stored.meta.seedVersion ?? 0) < SEED_VERSION &&
-          stored.meta.title === 'My MathMap');
 
-      if (!stored || needsFreshSeed) {
-        stored = await createSeedMapWithAssets();
-        stored.meta.seedVersion = SEED_VERSION;
+      if (!stored) {
+        stored = createEmptyMap();
+        stored.meta.localEditorProtocol = LOCAL_EDITOR_PROTOCOL;
+        await saveMap(stored);
+      } else if ((stored.meta.localEditorProtocol ?? 0) < LOCAL_EDITOR_PROTOCOL) {
+        if (isOldAutoDemoSeed(stored)) {
+          stored = createEmptyMap();
+        }
+        stored.meta.localEditorProtocol = LOCAL_EDITOR_PROTOCOL;
         await saveMap(stored);
       }
 

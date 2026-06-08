@@ -62,8 +62,9 @@ Then open **http://localhost:5173** in your browser.
 
 ## First launch
 
-- The app opens with a **starter map** (fields and concepts you can edit or delete).
-- Your work is saved **in this browser on this computer** (IndexedDB). It is not uploaded anywhere unless you export or publish.
+- The editor opens with a **blank map** titled **Untitled Map** (no demo content).
+- Your work is saved **in this browser** as you edit. Use **Import** to open a `.mathmap` file someone shared (or your own backup).
+- The **example map on the website** (`github.io/...`) is separate — view-only, for visitors.
 
 ---
 

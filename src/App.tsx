@@ -63,7 +63,7 @@ function App() {
   }
 
   const embed = isEmbedMode();
-  const showOnboarding = !readOnly && (map.meta.seedVersion ?? 0) >= 2;
+  const showOnboarding = !readOnly && !embed;
 
   const latexPackages = map.meta.latexPackages ?? DEFAULT_LATEX_PACKAGES;
 

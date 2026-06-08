@@ -75,47 +75,67 @@ html, body, #root {
 }
 
 .toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 0.75rem;
   padding: 0.5rem 1rem;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
-  gap: 0.5rem 0.75rem;
   flex-shrink: 0;
-  row-gap: 0.5rem;
+  overflow-x: auto;
 }
 
-.toolbar-left, .toolbar-right {
+.toolbar-left,
+.toolbar-center,
+.toolbar-right {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.toolbar-left {
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.toolbar-center {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar-center .search-bar {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.toolbar-center .search-bar input {
+  width: 100%;
+  max-width: none;
 }
 
 .toolbar-right {
-  margin-left: auto;
-  justify-content: flex-end;
-  max-width: 100%;
-}
-
-.toolbar-priority-btn {
   flex-shrink: 0;
+  justify-content: flex-end;
+  white-space: nowrap;
 }
 
 .toolbar .search-bar {
-  flex: 1 1 12rem;
-  min-width: 10rem;
-  max-width: min(420px, 100%);
   padding: 0;
   background: transparent;
   border: none;
 }
 
 .toolbar .search-bar input {
-  width: 100%;
-  max-width: none;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .app-logo {
