@@ -34,7 +34,7 @@ Edit `src/data/richSeed.ts` (or export a `.mathmap` and replace the seed), then 
 Optional: set a custom title on the live site when building:
 
 ```bash
-PUBLISH_MAP_TITLE="Sylvie's Math Map" npm run build:site
+PUBLISH_MAP_TITLE="My Math Map" npm run build:site
 ```
 
 ---

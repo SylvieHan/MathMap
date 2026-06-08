@@ -10,10 +10,9 @@
     "build": "tsc -b && vite build",
     "build:site": "VITE_PUBLISHED_SITE=true npm run build",
     "build:pages": "VITE_PUBLISHED_SITE=true GITHUB_PAGES=true VITE_BASE_PATH=/MathMap/ npm run build",
-    "deploy": "npm run build:pages && gh-pages -d dist -m \"Deploy MathMap site\"",
+    "deploy": "node scripts/deploy-site.mjs",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "example-map": "node scripts/build-example-map.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "cytoscape": "^3.34.0",
