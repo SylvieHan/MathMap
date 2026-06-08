@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEdge, MapNode } from '../types';
-import { getSubfieldKey, zoomToDetailLevel, type CircleItem, type DetailLevel } from '../utils/circleLayout';
+import {
+  fitTransformToCircleItems,
+  getSubfieldKey,
+  zoomToDetailLevel,
+  type CircleItem,
+  type DetailLevel,
+} from '../utils/circleLayout';
 import { clampInsideField } from '../utils/forceLayout';
 import { useForceLayout } from '../hooks/useForceLayout';
 import {
@@ -412,8 +418,12 @@ export function CircleMapCanvas({
 
   const fitAll = useCallback(() => {
     onDrillChange(EMPTY_DRILL);
-    animateTo({ x: size.w / 2, y: size.h / 2, k: 0.45 });
-  }, [size.w, size.h, onDrillChange, animateTo]);
+    const fields = layout.filter((it) => it.kind === 'field');
+    const rect = svgRef.current?.getBoundingClientRect();
+    const w = rect?.width ?? size.w;
+    const h = rect?.height ?? size.h;
+    animateTo(fitTransformToCircleItems(fields, w, h, 56, MIN_K, MAX_K));
+  }, [layout, size.w, size.h, onDrillChange, animateTo]);
 
   const focusOnNode = useCallback(
     (nodeId: string) => {

@@ -57,6 +57,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const isDraggingRef = useRef(false);
   const isTensionSettlingRef = useRef(false);
   const keepFieldSimRef = useRef(false);
+  const pinnedFieldIdsRef = useRef<Set<string>>(new Set());
   const skipSyncChildIdsRef = useRef<Set<string>>(new Set());
 
   const graphKey = `${nodes.length}:${edges.length}:${nodes.map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.pinned}`).join(';')}`;
@@ -87,7 +88,17 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     const sim = simRef.current;
     if (!sim) return;
     setIsSettling(true);
-    sim.alpha(Math.max(sim.alpha(), alpha)).restart();
+    sim.velocityDecay(0.62);
+    sim.alpha(Math.max(sim.alpha(), alpha)).alphaTarget(0).restart();
+  }, []);
+
+  /** Immediate spring-back for large field balls after release. */
+  const releaseFieldSprings = useCallback(() => {
+    const sim = simRef.current;
+    if (!sim) return;
+    setIsSettling(true);
+    sim.velocityDecay(0.4);
+    sim.alpha(0.92).alphaTarget(0).restart();
   }, []);
 
   const syncRelOffsetsFromField = useCallback(() => {
@@ -106,8 +117,6 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const runContainerSettle = useCallback(
     (fieldId: string, childIds: string[], onSettled?: () => void) => {
       cancelTensionSettle();
-      isTensionSettlingRef.current = true;
-      setIsTensionSettling(true);
 
       const tick = () => {
         const moving = stepContainerReleasePhysics(
@@ -124,18 +133,15 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
         } else {
           tensionRafRef.current = null;
           tensionVelocitiesRef.current.clear();
-          isTensionSettlingRef.current = false;
-          setIsTensionSettling(false);
           syncChildrenToFields(simNodesRef.current);
           publishLayout();
-          reheat(0.22);
           onSettled?.();
         }
       };
 
       tensionRafRef.current = requestAnimationFrame(tick);
     },
-    [cancelTensionSettle, publishLayout, reheat, syncRelOffsetsFromField],
+    [cancelTensionSettle, publishLayout, syncRelOffsetsFromField],
   );
 
   const runSubfieldSettle = useCallback(
@@ -301,9 +307,17 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       }
 
       isDraggingRef.current = true;
-      if (keepFieldSimRef.current) {
+      pinnedFieldIdsRef.current.clear();
+      if (keepFieldSimRef.current && target.kind === 'field' && primaryId) {
         const sim = simRef.current;
         if (sim) {
+          for (const n of simNodes) {
+            if (n.kind === 'field' && n.id !== primaryId) {
+              n.fx = n.x;
+              n.fy = n.y;
+              pinnedFieldIdsRef.current.add(n.id);
+            }
+          }
           setIsSettling(true);
           sim.alpha(0.48).restart();
         }
@@ -407,6 +421,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           }
         }
       }
+      pinnedFieldIdsRef.current.clear();
 
       dragOriginsRef.current.clear();
       const containerChildIds = [...dragChildIdsRef.current];
@@ -423,6 +438,10 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       lastContainerPosRef.current = null;
       dragPrimaryIdRef.current = null;
       isDraggingRef.current = false;
+
+      if (target?.kind === 'field') {
+        releaseFieldSprings();
+      }
 
       const releaseContainer =
         options?.releaseContainer &&
@@ -475,10 +494,20 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       tensionVelocitiesRef.current.clear();
       syncChildrenToFields(simNodesRef.current);
       publishLayout();
-      reheat(0.28);
+      if (target?.kind !== 'field') {
+        reheat(0.28);
+      }
       options?.onSettled?.();
     },
-    [publishLayout, reheat, runContainerSettle, runSubfieldSettle, runTensionSettle, syncRelOffsetsFromField],
+    [
+      publishLayout,
+      reheat,
+      releaseFieldSprings,
+      runContainerSettle,
+      runSubfieldSettle,
+      runTensionSettle,
+      syncRelOffsetsFromField,
+    ],
   );
 
   return {

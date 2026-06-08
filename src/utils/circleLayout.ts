@@ -10,6 +10,49 @@ export function zoomToDetailLevel(scale: number): DetailLevel {
   return 'concepts';
 }
 
+/** Camera transform that frames all given circles in the viewport. */
+export function fitTransformToCircleItems(
+  items: CircleItem[],
+  viewW: number,
+  viewH: number,
+  padding = 56,
+  minK = 0.25,
+  maxK = 3.5,
+): { x: number; y: number; k: number } {
+  if (items.length === 0) {
+    return { x: viewW / 2, y: viewH / 2, k: 0.45 };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const it of items) {
+    minX = Math.min(minX, it.x - it.r);
+    maxX = Math.max(maxX, it.x + it.r);
+    minY = Math.min(minY, it.y - it.r);
+    maxY = Math.max(maxY, it.y + it.r);
+  }
+
+  const worldW = Math.max(maxX - minX, 48);
+  const worldH = Math.max(maxY - minY, 48);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const k = Math.min(
+    (viewW - padding * 2) / worldW,
+    (viewH - padding * 2) / worldH,
+    maxK,
+  );
+  const clampedK = Math.max(minK, k);
+
+  return {
+    k: clampedK,
+    x: viewW / 2 - cx * clampedK,
+    y: viewH / 2 - cy * clampedK,
+  };
+}
+
 export interface CircleItem {
   id: string;
   kind: 'field' | 'subfield' | 'concept';

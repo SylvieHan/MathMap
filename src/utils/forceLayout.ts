@@ -449,12 +449,7 @@ export function stepContainerDragPhysics(
     .map((id) => simNodes.find((n) => n.id === id))
     .filter((n): n is ForceSimNode => !!n && !n.mapNode.pinned);
   const movable = new Set(children.map((n) => n.id));
-  const fieldMates = simNodes.filter(
-    (n) =>
-      n.fieldId === container.fieldId &&
-      n.kind !== 'field' &&
-      !n.mapNode.pinned,
-  );
+  const fixedIds = new Set([containerId]);
 
   const dragSpeed = Math.hypot(fieldDelta.dx, fieldDelta.dy);
 
@@ -510,13 +505,10 @@ export function stepContainerDragPhysics(
       worldPositions.set(child.id, { x: child.x, y: child.y });
     }
 
-    separateCircleOverlaps(
-      fieldMates,
-      movable,
-      new Set([containerId]),
-      worldPositions,
-    );
-    applyFieldCollisions(fieldMates, movable, velocities, new Set([containerId]));
+    if (children.length > 1) {
+      separateCircleOverlaps(children, movable, fixedIds, worldPositions);
+      applyFieldCollisions(children, movable, velocities, fixedIds);
+    }
     for (const child of children) {
       clampInsideFieldDisc(child, fields, velocities);
       worldPositions.set(child.id, { x: child.x, y: child.y });
@@ -635,13 +627,6 @@ export function stepSubfieldLinkSprings(
   const fields = new Map(
     simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
   );
-  const fieldMates = simNodes.filter(
-    (n) =>
-      n.fieldId === anchor.fieldId &&
-      (n.kind === 'subfield' || n.kind === 'concept') &&
-      !n.mapNode.pinned,
-  );
-
   for (let step = 0; step < substeps; step++) {
     const forces = new Map<string, { fx: number; fy: number }>();
     for (const id of affected) forces.set(id, { fx: 0, fy: 0 });
@@ -676,8 +661,14 @@ export function stepSubfieldLinkSprings(
     }
 
     const fixedIds = new Set([anchorId]);
-    separateCircleOverlaps(fieldMates, new Set(fieldMates.map((n) => n.id)), fixedIds);
-    applyFieldCollisions(fieldMates, new Set(fieldMates.map((n) => n.id)), velocities, fixedIds);
+    const collisionNodes = [...affected]
+      .map((id) => byId.get(id))
+      .filter((n): n is ForceSimNode => !!n);
+    if (collisionNodes.length > 1) {
+      const movable = new Set(collisionNodes.map((n) => n.id));
+      separateCircleOverlaps(collisionNodes, movable, fixedIds);
+      applyFieldCollisions(collisionNodes, movable, velocities, fixedIds);
+    }
 
     for (const id of affected) {
       const n = byId.get(id);
@@ -696,7 +687,10 @@ export function stepSubfieldLinkSprings(
       clampInsideFieldDisc(n, fields, velocities);
     }
 
-    separateCircleOverlaps(fieldMates, new Set(fieldMates.map((n) => n.id)), fixedIds);
+    if (collisionNodes.length > 1) {
+      const movable = new Set(collisionNodes.map((n) => n.id));
+      separateCircleOverlaps(collisionNodes, movable, fixedIds);
+    }
   }
 }
 
@@ -749,18 +743,11 @@ export function stepSubfieldReleaseSprings(
       forces.get(b.id)!.fy -= fy;
     }
 
-    const fieldId = subfields.find((n) => affected.has(n.id))?.fieldId;
-    const fieldMates = fieldId
-      ? simNodes.filter(
-          (n) =>
-            n.fieldId === fieldId &&
-            (n.kind === 'subfield' || n.kind === 'concept') &&
-            !n.mapNode.pinned,
-        )
-      : [];
-
-    if (fieldMates.length > 1) {
-      separateCircleOverlaps(fieldMates, new Set(fieldMates.map((n) => n.id)), new Set());
+    const collisionNodes = [...affected]
+      .map((id) => byId.get(id))
+      .filter((n): n is ForceSimNode => !!n);
+    if (collisionNodes.length > 1) {
+      separateCircleOverlaps(collisionNodes, new Set(collisionNodes.map((n) => n.id)), new Set());
     }
 
     for (const id of affected) {
@@ -901,30 +888,14 @@ export function stepTensionSprings(
     }
 
     const fixedIds = anchorId ? new Set([anchorId]) : new Set<string>();
-    const anchor = anchorId ? byId.get(anchorId) : null;
-    let squishFieldId = anchor?.fieldId;
-    if (!squishFieldId) {
-      for (const id of affected) {
-        const mate = simNodes.find((sn) => sn.id === id && sn.kind === 'concept');
-        if (mate) {
-          squishFieldId = mate.fieldId;
-          break;
-        }
-      }
-    }
-    const fieldMates = squishFieldId
-      ? simNodes.filter(
-          (n) =>
-            n.fieldId === squishFieldId &&
-            (n.kind === 'concept' || n.kind === 'subfield') &&
-            !n.mapNode.pinned,
-        )
-      : [];
+    const collisionNodes = [...affected]
+      .map((id) => byId.get(id))
+      .filter((n): n is ForceSimNode => !!n);
 
-    if (fieldMates.length > 1) {
-      const movable = new Set(fieldMates.map((n) => n.id));
-      separateCircleOverlaps(fieldMates, movable, fixedIds);
-      applyFieldCollisions(fieldMates, movable, velocities, fixedIds);
+    if (collisionNodes.length > 1) {
+      const movable = new Set(collisionNodes.map((n) => n.id));
+      separateCircleOverlaps(collisionNodes, movable, fixedIds);
+      applyFieldCollisions(collisionNodes, movable, velocities, fixedIds);
     }
 
     for (const id of affected) {
@@ -948,11 +919,10 @@ export function stepTensionSprings(
       maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
     }
 
-    if (fieldMates.length > 1) {
-      const movable = new Set(fieldMates.map((n) => n.id));
-      separateCircleOverlaps(fieldMates, movable, fixedIds);
-      applyFieldCollisions(fieldMates, movable, velocities, fixedIds);
-      for (const mate of fieldMates) {
+    if (collisionNodes.length > 1) {
+      const movable = new Set(collisionNodes.map((n) => n.id));
+      separateCircleOverlaps(collisionNodes, movable, fixedIds);
+      for (const mate of collisionNodes) {
         clampInsideFieldDisc(mate, fields, velocities);
       }
     }
