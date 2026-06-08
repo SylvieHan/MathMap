@@ -953,6 +953,21 @@ html, body, #root {
   padding: 1rem;
 }
 
+.panel-add-btn,
+.toolbar-add-btn {
+  font-weight: 600;
+  border-color: var(--accent, #3b82f6) !important;
+  color: var(--accent, #3b82f6);
+}
+
+.side-panel-empty .panel-add-btn {
+  margin-bottom: 0.75rem;
+}
+
+.panel-header .panel-add-btn {
+  margin-bottom: 0.5rem;
+}
+
 .panel-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border);

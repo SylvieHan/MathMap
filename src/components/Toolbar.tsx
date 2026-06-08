@@ -6,8 +6,9 @@ interface ToolbarProps {
   mapTitle: string;
   readOnly?: boolean;
   onTitleChange: (title: string) => void;
-  onAddConcept: () => void;
-  onAddFolder: () => void;
+  addLabel: string;
+  addTitle: string;
+  onAdd: () => void;
   onNewMap: () => void;
   onRelayout: () => void;
   onExport: () => void;
@@ -25,8 +26,9 @@ export function Toolbar({
   mapTitle,
   readOnly,
   onTitleChange,
-  onAddConcept,
-  onAddFolder,
+  addLabel,
+  addTitle,
+  onAdd,
   onNewMap,
   onRelayout,
   onExport,
@@ -71,8 +73,9 @@ export function Toolbar({
             <button type="button" onClick={onNewMap} title="Start a blank map">
               New map
             </button>
-            <button type="button" onClick={onAddConcept} title="Add concept node">+ Concept</button>
-            <button type="button" onClick={onAddFolder} title="Add field folder">+ Folder</button>
+            <button type="button" className="toolbar-add-btn" onClick={onAdd} title={addTitle}>
+              {addLabel}
+            </button>
             <button type="button" onClick={onRelayout} title="Re-pack circles for unpinned nodes">
               Re-layout
             </button>

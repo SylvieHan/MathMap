@@ -19,18 +19,21 @@ if [[ ! -d node_modules ]]; then
   npm install
 fi
 
+# Keep the URL stable: close a leftover dev server from a previous session.
+if command -v lsof >/dev/null 2>&1; then
+  stale=$(lsof -ti:5173 2>/dev/null || true)
+  if [[ -n "$stale" ]]; then
+    echo ""
+    echo "  Closing previous MathMap session on port 5173..."
+    kill $stale 2>/dev/null || true
+    sleep 0.5
+  fi
+fi
+
 echo ""
 echo "  MathMap editor starting..."
-echo "  Browser: http://127.0.0.1:5173"
+echo "  Your browser will open automatically when ready."
 echo "  Keep this window open while editing. Press Ctrl+C to stop."
 echo ""
 
-(sleep 2 && {
-  if command -v open >/dev/null 2>&1; then
-    open "http://127.0.0.1:5173"
-  elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "http://127.0.0.1:5173"
-  fi
-}) &
-
-npm run dev
+exec npm run dev -- --open --port 5173 --strictPort

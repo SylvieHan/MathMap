@@ -1,7 +1,8 @@
 # Getting started with MathMap (local editor)
 
-Use this guide if you **cloned the repo** and want to **build your own map** on your computer.  
-(If you only want to **view** someone’s published map, open their website link — no install needed.)
+> **First time in this folder?** See **[START-HERE.md](./START-HERE.md)** for the big picture.
+
+Use this guide if you **cloned or unzipped the project** and want to **build your own map** on your computer.
 
 ---
 
@@ -31,13 +32,20 @@ npm --version
 1. Clone or download this repository.
 2. Double-click **`Start MathMap.command`** in the project folder.
 3. If macOS blocks it: right-click → **Open** → **Open** (first time only).
-4. Your browser opens **http://localhost:5173** — that is the editor.
+4. Your browser opens **automatically** when the editor is ready. You do not need to type a web address.
+
+**Two different things (easy to mix up):**
+
+| What | How you open it |
+|------|-----------------|
+| **Editor** (build your map) | Double-click **`Start MathMap.command`** — runs on your computer only |
+| **Published map** (view Sylvie’s map online) | Open the **github.io** link in a browser — no install, read-only |
 
 ### Windows — double-click
 
 1. Clone or download this repository.
 2. Double-click **`start-mathmap.bat`**.
-3. A terminal window opens and your browser should open automatically.
+3. A terminal window opens; your browser opens **automatically** when ready.
 4. **Keep the terminal window open** while you work. Close it when you are done.
 
 ### Linux (or terminal on any system)
@@ -48,15 +56,15 @@ chmod +x start-mathmap.sh    # first time only
 ./start-mathmap.sh
 ```
 
-Or manually:
+Or manually (terminal users):
 
 ```bash
 cd path/to/MathMap
 npm install    # first time only
-npm run dev
+npm run dev -- --open
 ```
 
-Then open **http://localhost:5173** in your browser.
+The `--open` flag opens your browser when the server is ready.
 
 ---
 
@@ -115,9 +123,9 @@ A **`.mathmap` file** is your whole map in one portable file (text + images/PDFs
 
 ## Typical workflows
 
-### A — Start from the included example
+### A — Start from a shared file
 
-1. Launch editor → edit the starter map → **Export** when happy.
+1. Launch editor → **Import** → choose a `.mathmap` file.
 
 ### B — Start blank
 

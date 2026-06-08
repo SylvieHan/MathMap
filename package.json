@@ -11,6 +11,7 @@
     "build:site": "VITE_PUBLISHED_SITE=true npm run build",
     "build:pages": "VITE_PUBLISHED_SITE=true GITHUB_PAGES=true VITE_BASE_PATH=/MathMap/ npm run build",
     "deploy": "node scripts/deploy-site.mjs",
+    "pack-handoff": "bash scripts/pack-handoff.sh",
     "lint": "eslint .",
     "preview": "vite preview"
   },

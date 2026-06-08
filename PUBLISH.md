@@ -1,6 +1,10 @@
 # Publish your MathMap as a website
 
-Your map can live at a public link (read-only) while others use the npm package locally to build their own editable maps.
+> **New to this folder?** See **[START-HERE.md](./START-HERE.md)** first.
+
+Your map can live at a public link (read-only) while others use the repo locally to build their own editable maps.
+
+---
 
 ## Option A — GitHub Pages (free, recommended)
 
@@ -9,15 +13,31 @@ Your map can live at a public link (read-only) while others use the npm package 
 1. Create a GitHub repository and push this project.
 
 2. In the repo, go to **Settings → Pages → Build and deployment**:
-   - Source: **GitHub Actions**
+   - Source: **Deploy from a branch**
+   - Branch: **`gh-pages`** / **`/ (root)`**
 
 3. If your repo is **not** named `MathMap`, set the base path when building:
    ```bash
    VITE_BASE_PATH=/YourRepoName/ npm run build:pages
    ```
-   Or edit `.github/workflows/deploy-pages.yml` — it auto-uses the repo name.
 
-4. Push to `main`. The **Deploy published map to GitHub Pages** workflow runs automatically.
+### Deploy / update the live map
+
+From the repo root (with push access to GitHub):
+
+```bash
+npm run deploy
+```
+
+This builds the published site and pushes `dist/` to the **`gh-pages`** branch.
+
+**Edit the live map content** in `src/data/richSeed.ts`, then run `npm run deploy` again.
+
+Optional title override when building:
+
+```bash
+PUBLISH_MAP_TITLE="My Math Map" npm run build:pages
+```
 
 ### Your public link
 
@@ -26,16 +46,6 @@ https://<your-github-username>.github.io/<repo-name>/
 ```
 
 No `?view=1` needed — the published build is read-only by default and loads your full map from `bundled-map.json`.
-
-### Update the live map
-
-Edit `src/data/richSeed.ts` (or export a `.mathmap` and replace the seed), then push to `main`. The site rebuilds on every push.
-
-Optional: set a custom title on the live site when building:
-
-```bash
-PUBLISH_MAP_TITLE="My Math Map" npm run build:site
-```
 
 ---
 
@@ -83,7 +93,7 @@ For a root domain (not subpath), no `GITHUB_PAGES` or `VITE_BASE_PATH` is needed
 | | Local editor (`npm run dev`) | Published site (`npm run build:site`) |
 |---|---|---|
 | Edit map | Yes | No (view only) |
-| Data source | IndexedDB + seed | `bundled-map.json` |
+| Data source | IndexedDB (starts blank) | `bundled-map.json` from `richSeed.ts` |
 | Share link | Export `.mathmap` | Public URL |
 
 Preview the published site locally:

@@ -6,6 +6,11 @@ import { downloadMathMap, parseMathMapFile, importMathMapToDb } from '../utils/e
 import { colorForNode } from '../utils/colors';
 import type { MathMap, MapEdge, MapNode } from '../types';
 import { getBundledMapUrl, isReadOnlyMode } from '../utils/siteMode';
+import {
+  allocateSubfieldKey,
+  defaultSubfieldConceptTitle,
+  type AddContext,
+} from '../utils/addInContext';
 
 /** Local editor: blank map on first open; rich seed is only for published bundled-map.json. */
 const LOCAL_EDITOR_PROTOCOL = 1;
@@ -100,6 +105,48 @@ export function useMap() {
       color: colorForNode(type, type === 'field-folder' ? ['00'] : []),
     });
     persist({ ...map, nodes: [...map.nodes, node] });
+  };
+
+  const addInContext = (ctx: AddContext): MapNode | null => {
+    if (!map || readOnly) return null;
+
+    if (!ctx.fieldId) {
+      const node = createNode({
+        title: 'New Field',
+        type: 'field-folder',
+        mscCodes: ['00'],
+        color: colorForNode('field-folder', ['00']),
+      });
+      persist({ ...map, nodes: [...map.nodes, node] });
+      return node;
+    }
+
+    const field = map.nodes.find((n) => n.id === ctx.fieldId && n.type === 'field-folder');
+    if (!field) return null;
+
+    if (!ctx.subfieldKey) {
+      const subfieldKey = allocateSubfieldKey(field, map.nodes);
+      const node = createNode({
+        title: defaultSubfieldConceptTitle(subfieldKey),
+        type: 'concept',
+        parentId: ctx.fieldId,
+        mscCodes: [subfieldKey],
+        color: colorForNode('concept', [subfieldKey]),
+      });
+      persist({ ...map, nodes: [...map.nodes, node] });
+      return node;
+    }
+
+    const mscCodes = /^\d{2}[A-Z]/.test(ctx.subfieldKey) ? [ctx.subfieldKey] : [ctx.subfieldKey];
+    const node = createNode({
+      title: 'New Concept',
+      type: 'concept',
+      parentId: ctx.fieldId,
+      mscCodes,
+      color: colorForNode('concept', mscCodes),
+    });
+    persist({ ...map, nodes: [...map.nodes, node] });
+    return node;
   };
 
   const deleteNode = (id: string) => {
@@ -201,6 +248,7 @@ export function useMap() {
     updateLatexPackages,
     updateNode,
     addNode,
+    addInContext,
     deleteNode,
     moveNode,
     togglePin,

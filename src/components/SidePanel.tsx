@@ -14,6 +14,9 @@ interface SidePanelProps {
   nodes: MapNode[];
   edges: MapEdge[];
   readOnly?: boolean;
+  addLabel?: string;
+  addTitle?: string;
+  onAdd?: () => void;
   onClose: () => void;
   onSelect: (selection: MapSelection) => void;
   onUpdate: (node: MapNode) => void;
@@ -78,6 +81,9 @@ export function SidePanel({
   nodes,
   edges,
   readOnly,
+  addLabel = '+ Add',
+  addTitle = 'Add',
+  onAdd,
   onClose,
   onSelect,
   onUpdate,
@@ -89,10 +95,17 @@ export function SidePanel({
     <button type="button" className="panel-close" onClick={onClose} aria-label="Close">×</button>
   );
 
+  const addBtn = !readOnly && onAdd ? (
+    <button type="button" className="panel-add-btn" onClick={onAdd} title={addTitle}>
+      {addLabel}
+    </button>
+  ) : null;
+
   if (!selection) {
     return (
       <aside className="side-panel side-panel-empty">
         <h2>Node details</h2>
+        {addBtn}
         <p className="empty-hint">
           Click any circle on the map — its <strong>table of contents</strong> appears here.
           Click a <strong>connection</strong> (sidebar or map) to read its theorem.
@@ -168,6 +181,7 @@ export function SidePanel({
         header={
           <>
             {closeBtn}
+            {addBtn}
             {field && (
               <button
                 type="button"
@@ -231,6 +245,7 @@ export function SidePanel({
       header={
         <>
           {closeBtn}
+          {addBtn}
           {readOnly ? (
             <h2>{node.title}</h2>
           ) : (

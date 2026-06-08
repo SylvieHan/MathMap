@@ -2,7 +2,11 @@
 
 A personal, interactive 2D map for visualizing how mathematical concepts connect — how fields relate, how concepts bridge fields, and how ideas cluster together. Fully static, free to run and host, with all data stored locally in your browser.
 
-**New here?** Read **[GETTING-STARTED.md](./GETTING-STARTED.md)** — install, double-click launchers (Windows / macOS / Linux), create a map, save `.mathmap` files, and import them back.
+**Open the folder?** Start with **[START-HERE.md](./START-HERE.md)** — what to read and what to do first.
+
+**New user?** **[GETTING-STARTED.md](./GETTING-STARTED.md)** — install, launchers, blank map, export/import.
+
+**Developer / maintainer?** **[DEVELOPER.md](./DEVELOPER.md)** — architecture, data model, deployment.
 
 **View-only website:** [sylviehan.github.io/MathMap](https://sylviehan.github.io/MathMap/) (no install).  
 **Publish your own site:** [PUBLISH.md](./PUBLISH.md).
@@ -106,11 +110,12 @@ See **[PUBLISH.md](./PUBLISH.md)** for step-by-step setup, embed code for Google
 
 Quick version:
 
-1. Push to GitHub and enable **Pages → GitHub Actions**.
-2. Push to `main` — the workflow deploys automatically.
-3. Visit `https://<username>.github.io/<repo-name>/`.
+1. Push to GitHub.
+2. From the repo root, run **`npm run deploy`** (builds and pushes `dist/` to the **`gh-pages`** branch).
+3. In GitHub **Settings → Pages**, set source to the **`gh-pages`** branch (if not already).
+4. Visit `https://<username>.github.io/<repo-name>/`.
 
-To build manually:
+To build manually without deploying:
 
 ```bash
 npm run build:pages   # if repo is named MathMap
@@ -136,11 +141,14 @@ Markdown rendering uses a small built-in parser (no extra dependency).
 
 ```
 src/
-  components/     # GraphCanvas, SidePanel, Toolbar, TagPicker, ContentBlocks, SearchBar
-  data/           # MSC2020 vocabulary, seed map
+  components/     # CircleMapCanvas, SidePanel, Toolbar, SearchBar, …
+  data/           # MSC2020 vocabulary, richSeed (published map), map factories
   db/             # IndexedDB wrapper
-  hooks/          # useMap, useTheme
-  utils/          # colors, layout, export/import, merge
+  hooks/          # useMap, useForceLayout, useTheme
+  utils/          # circleLayout, forceLayout, export/import, merge, siteMode
 public/
-  bundled-map.json  # full read-only map (generated from richSeed at build)
+  bundled-map.json  # read-only map for published site (generated from richSeed at build)
+scripts/
+  export-bundled-map.ts
+  deploy-site.mjs
 ```

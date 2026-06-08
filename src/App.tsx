@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { CircleMapCanvas } from './components/CircleMapCanvas';
 import { SidePanel } from './components/SidePanel';
 import { Toolbar } from './components/Toolbar';
@@ -9,6 +9,8 @@ import { usePreventBrowserZoom } from './hooks/usePreventBrowserZoom';
 import { useTheme } from './hooks/useTheme';
 import { DEFAULT_LATEX_PACKAGES } from './utils/latex';
 import { isEmbedMode } from './utils/siteMode';
+import { resolveAddAction, resolveAddContext } from './utils/addInContext';
+import { getSubfieldKey } from './utils/circleLayout';
 import type { DrillState, MapSelection } from './types/selection';
 import { EMPTY_DRILL } from './types/selection';
 function App() {
@@ -19,7 +21,7 @@ function App() {
     updateMeta,
     updateLatexPackages,
     updateNode,
-    addNode,
+    addInContext,
     deleteNode,
     moveNode,
     togglePin,
@@ -53,6 +55,25 @@ function App() {
     }
   }, [map?.nodes]);
 
+  const addAction = useMemo(
+    () => resolveAddAction(drill, selection, map?.nodes ?? []),
+    [drill, selection, map?.nodes],
+  );
+
+  const handleAdd = useCallback(() => {
+    if (!map) return;
+    const ctx = resolveAddContext(drill, selection, map.nodes);
+    const node = addInContext(ctx);
+    if (!node) return;
+
+    setSelection({ kind: 'node', id: node.id });
+    if (node.type === 'field-folder') {
+      setDrill({ fieldId: node.id, subfieldKey: null });
+    } else if (node.parentId) {
+      setDrill({ fieldId: node.parentId, subfieldKey: getSubfieldKey(node) });
+    }
+  }, [addInContext, drill, map, selection]);
+
   if (loading || !map) {
     return (
       <div className="app-loading">
@@ -74,8 +95,9 @@ function App() {
         mapTitle={map.meta.title}
         readOnly={readOnly}
         onTitleChange={updateMeta}
-        onAddConcept={() => addNode('concept')}
-        onAddFolder={() => addNode('field-folder')}
+        addLabel={addAction.label}
+        addTitle={addAction.title}
+        onAdd={handleAdd}
         onNewMap={() => {
           if (
             window.confirm(
@@ -150,6 +172,9 @@ function App() {
           nodes={map.nodes}
           edges={map.edges}
           readOnly={readOnly}
+          addLabel={addAction.label}
+          addTitle={addAction.title}
+          onAdd={handleAdd}
           onClose={() => {
             setSelection(null);
             setDrill(EMPTY_DRILL);
