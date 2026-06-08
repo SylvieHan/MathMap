@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEdge, MapNode } from '../types';
-import { zoomToDetailLevel, type CircleItem, type DetailLevel } from '../utils/circleLayout';
+import { getSubfieldKey, zoomToDetailLevel, type CircleItem, type DetailLevel } from '../utils/circleLayout';
 import { clampInsideField } from '../utils/forceLayout';
 import { useForceLayout } from '../hooks/useForceLayout';
 import { buildRenderedEdges, edgeTouchesConcept, type RenderedEdge } from '../utils/edgeDisplay';
@@ -28,6 +28,8 @@ export interface CircleMapCanvasProps {
   onNodeMove: (id: string, x: number, y: number) => void;
   onTogglePin: (id: string) => void;
   onAddEdge?: (source: string, target: string) => void;
+  /** Bumped seq triggers animated camera focus on a node (hyperlink navigation). */
+  focusNode?: { nodeId: string; seq: number } | null;
 }
 
 const MIN_K = 0.25;
@@ -117,6 +119,7 @@ export function CircleMapCanvas({
   onNodeMove,
   onTogglePin,
   onAddEdge,
+  focusNode,
 }: CircleMapCanvasProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -250,7 +253,33 @@ export function CircleMapCanvas({
     [edges, nodes, layout, level, drill, conceptPositions, visibleConceptIds],
   );
 
-  const selectedEdgeId = selection?.kind === 'edge' ? selection.id : null;
+  const selectedBundleId =
+    selection?.kind === 'edge-bundle' ? selection.bundleId : null;
+  const selectedEdgeIds = useMemo(() => {
+    if (selection?.kind === 'edge-bundle') return new Set(selection.edgeIds);
+    if (selection?.kind === 'edge') return new Set([selection.id]);
+    return null;
+  }, [selection]);
+
+  const selectRenderedEdge = useCallback(
+    (hitEdge: RenderedEdge) => {
+      if (hitEdge.bundleSize > 1 && hitEdge.lod === 'field' && hitEdge.fieldAId && hitEdge.fieldBId) {
+        const fieldA = nodes.find((n) => n.id === hitEdge.fieldAId);
+        const fieldB = nodes.find((n) => n.id === hitEdge.fieldBId);
+        onSelectionChange({
+          kind: 'edge-bundle',
+          bundleId: hitEdge.id,
+          edgeIds: hitEdge.bundleEdges.map((e) => e.id),
+          fieldAId: hitEdge.fieldAId,
+          fieldBId: hitEdge.fieldBId,
+          label: hitEdge.label ?? `${fieldA?.title ?? 'Field'} ↔ ${fieldB?.title ?? 'Field'}`,
+        });
+      } else {
+        onSelectionChange({ kind: 'edge', id: hitEdge.sourceEdge.id });
+      }
+    },
+    [nodes, onSelectionChange],
+  );
 
   const edgeHitThreshold = useCallback(
     (lod: RenderedEdge['lod'], k: number) => {
@@ -377,6 +406,33 @@ export function CircleMapCanvas({
     onDrillChange(EMPTY_DRILL);
     animateTo({ x: size.w / 2, y: size.h / 2, k: 0.45 });
   }, [size.w, size.h, onDrillChange, animateTo]);
+
+  const focusOnNode = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return;
+
+      if (node.type === 'field-folder') {
+        drillToField(node.id);
+        return;
+      }
+
+      if (node.type === 'concept' && node.parentId) {
+        const subfieldKey = getSubfieldKey(node);
+        onDrillChange({ fieldId: node.parentId, subfieldKey });
+        const conceptItem = layout.find((it) => it.kind === 'concept' && it.id === node.id);
+        if (conceptItem) {
+          centerOn(conceptItem.x, conceptItem.y, Math.max(transformRef.current.k, 1.35));
+        }
+      }
+    },
+    [nodes, layout, drillToField, onDrillChange, centerOn],
+  );
+
+  useEffect(() => {
+    if (!focusNode?.nodeId) return;
+    focusOnNode(focusNode.nodeId);
+  }, [focusNode?.nodeId, focusNode?.seq, focusOnNode]);
 
   useEffect(() => {
     if (!drill.fieldId) return;
@@ -711,7 +767,7 @@ export function CircleMapCanvas({
             ),
           );
           if (hitEdge) {
-            onSelectionChange({ kind: 'edge', id: hitEdge.sourceEdge.id });
+            selectRenderedEdge(hitEdge);
           } else {
             onSelectionChange(null);
           }
@@ -1158,9 +1214,11 @@ export function CircleMapCanvas({
                 !searchDimmed &&
                 focusNodeId !== null &&
                 edgeTouchesConcept(edge, focusNodeId);
+              const isEdgeSelected =
+                selectedBundleId === edge.id || (selectedEdgeIds?.has(rep.id) ?? false);
               const edgeActive =
                 isTension ||
-                selectedEdgeId === rep.id ||
+                isEdgeSelected ||
                 hoverEdgeId === rep.id ||
                 nodeHighlighted;
               const highlighted = !searchDimmed && edgeActive;
@@ -1208,7 +1266,7 @@ export function CircleMapCanvas({
               return (
                 <g
                   key={edge.id}
-                  className={`map-edge-group map-edge-lod-${lod}${highlighted ? ' highlighted' : ''}${isTension ? ' tension' : ''}${selectedEdgeId === rep.id ? ' selected' : ''}`}
+                  className={`map-edge-group map-edge-lod-${lod}${highlighted ? ' highlighted' : ''}${isTension ? ' tension' : ''}${isEdgeSelected ? ' selected' : ''}`}
                 >
                   <line
                     x1={edge.x1}

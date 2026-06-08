@@ -19,6 +19,7 @@ interface SidePanelProps {
   onAdd?: () => void;
   onClose: () => void;
   onSelect: (selection: MapSelection) => void;
+  onFocusNode?: (nodeId: string) => void;
   onUpdate: (node: MapNode) => void;
   onUpdateEdge: (edge: MapEdge) => void;
   onDelete: (id: string) => void;
@@ -30,11 +31,13 @@ function ConnectionRow({
   nodeId,
   nodes,
   onSelect,
+  onFocusNode,
 }: {
   edge: MapEdge;
   nodeId: string;
   nodes: MapNode[];
   onSelect: (selection: MapSelection) => void;
+  onFocusNode?: (nodeId: string) => void;
 }) {
   const otherId = edge.source === nodeId ? edge.target : edge.source;
   const other = nodes.find((n) => n.id === otherId);
@@ -42,15 +45,26 @@ function ConnectionRow({
 
   return (
     <li className="connection-item">
-      <button
-        type="button"
-        className="connection-edge-btn"
-        onClick={() => onSelect({ kind: 'edge', id: edge.id })}
-      >
-        <span className="connection-direction">{direction}</span>
-        <span className="connection-target">{other?.title ?? otherId}</span>
-        {edge.label && <span className="connection-label">{edge.label}</span>}
-      </button>
+      <div className="connection-edge-row">
+        <button
+          type="button"
+          className="connection-edge-btn"
+          onClick={() => onSelect({ kind: 'edge', id: edge.id })}
+        >
+          <span className="connection-direction">{direction}</span>
+          {edge.label && <span className="connection-label">{edge.label}</span>}
+        </button>
+        <button
+          type="button"
+          className="connection-target-link"
+          onClick={() => {
+            onFocusNode?.(otherId);
+            onSelect({ kind: 'node', id: otherId });
+          }}
+        >
+          {other?.title ?? otherId}
+        </button>
+      </div>
       {edge.weight && edge.weight > 1 && (
         <span className="connection-weight" title="Link strength">×{edge.weight}</span>
       )}
@@ -86,6 +100,7 @@ export function SidePanel({
   onAdd,
   onClose,
   onSelect,
+  onFocusNode,
   onUpdate,
   onUpdateEdge,
   onDelete,
@@ -119,6 +134,70 @@ export function SidePanel({
     );
   }
 
+  if (selection.kind === 'edge-bundle') {
+    const fieldA = nodes.find((n) => n.id === selection.fieldAId);
+    const fieldB = nodes.find((n) => n.id === selection.fieldBId);
+    const bundleEdges = edges.filter((e) => selection.edgeIds.includes(e.id));
+
+    return (
+      <PanelShell
+        header={
+          <>
+            {closeBtn}
+            <h2>{selection.label}</h2>
+            <span className="node-type-badge edge">Cross-field links</span>
+            <p className="panel-hint">
+              {bundleEdges.length} connection{bundleEdges.length === 1 ? '' : 's'} between{' '}
+              <strong>{fieldA?.title ?? 'Field A'}</strong> and{' '}
+              <strong>{fieldB?.title ?? 'Field B'}</strong>. Click a link for its theorem; click a
+              concept name to fly the map there.
+            </p>
+          </>
+        }
+      >
+        <div className="panel-section">
+          <ul className="connection-list bundle-link-list">
+            {bundleEdges.map((edge) => {
+              const source = nodes.find((n) => n.id === edge.source);
+              const target = nodes.find((n) => n.id === edge.target);
+              return (
+                <li key={edge.id} className="bundle-link-item">
+                  <button
+                    type="button"
+                    className="edge-endpoint-btn"
+                    onClick={() => {
+                      onFocusNode?.(edge.source);
+                      onSelect({ kind: 'node', id: edge.source });
+                    }}
+                  >
+                    {source?.title ?? edge.source}
+                  </button>
+                  <button
+                    type="button"
+                    className="bundle-link-theorem"
+                    onClick={() => onSelect({ kind: 'edge', id: edge.id })}
+                  >
+                    {edge.label ?? 'Connection'}
+                  </button>
+                  <button
+                    type="button"
+                    className="edge-endpoint-btn"
+                    onClick={() => {
+                      onFocusNode?.(edge.target);
+                      onSelect({ kind: 'node', id: edge.target });
+                    }}
+                  >
+                    {target?.title ?? edge.target}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </PanelShell>
+    );
+  }
+
   if (selection.kind === 'edge') {
     const edge = edges.find((e) => e.id === selection.id);
     if (!edge) {
@@ -145,11 +224,25 @@ export function SidePanel({
         <div className="panel-section">
           <h3>Between</h3>
           <div className="edge-endpoints">
-            <button type="button" className="edge-endpoint-btn" onClick={() => onSelect({ kind: 'node', id: edge.source })}>
+            <button
+              type="button"
+              className="edge-endpoint-btn"
+              onClick={() => {
+                onFocusNode?.(edge.source);
+                onSelect({ kind: 'node', id: edge.source });
+              }}
+            >
               {source?.title ?? edge.source}
             </button>
             <span className="edge-arrow">↔</span>
-            <button type="button" className="edge-endpoint-btn" onClick={() => onSelect({ kind: 'node', id: edge.target })}>
+            <button
+              type="button"
+              className="edge-endpoint-btn"
+              onClick={() => {
+                onFocusNode?.(edge.target);
+                onSelect({ kind: 'node', id: edge.target });
+              }}
+            >
               {target?.title ?? edge.target}
             </button>
           </div>
@@ -320,6 +413,7 @@ export function SidePanel({
                 nodeId={node.id}
                 nodes={nodes}
                 onSelect={onSelect}
+                onFocusNode={onFocusNode}
               />
             ))}
           </ul>

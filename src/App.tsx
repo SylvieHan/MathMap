@@ -40,12 +40,13 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightIds, setHighlightIds] = useState<Set<string> | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [focusNode, setFocusNode] = useState<{ nodeId: string; seq: number } | null>(null);
 
   const handleSelect = useCallback((sel: MapSelection) => {
     setSelection(sel);
     if (sel.kind === 'subfield') {
       setDrill({ fieldId: sel.fieldId, subfieldKey: sel.subfieldKey });
-    } else if (sel.kind === 'edge') {
+    } else if (sel.kind === 'edge' || sel.kind === 'edge-bundle') {
       // keep current map drill level
     } else {
       const node = map?.nodes.find((n) => n.id === sel.id);
@@ -59,6 +60,17 @@ function App() {
     () => resolveAddAction(drill, selection, map?.nodes ?? []),
     [drill, selection, map?.nodes],
   );
+
+  const handleFocusNode = useCallback((nodeId: string) => {
+    setFocusNode({ nodeId, seq: Date.now() });
+    setSelection({ kind: 'node', id: nodeId });
+    const node = map?.nodes.find((n) => n.id === nodeId);
+    if (node?.type === 'field-folder') {
+      setDrill({ fieldId: nodeId, subfieldKey: null });
+    } else if (node?.type === 'concept' && node.parentId) {
+      setDrill({ fieldId: node.parentId, subfieldKey: getSubfieldKey(node) });
+    }
+  }, [map?.nodes]);
 
   const handleAdd = useCallback(() => {
     if (!map) return;
@@ -149,7 +161,7 @@ function App() {
               if (!sel) return;
               if (sel.kind === 'subfield') {
                 setDrill({ fieldId: sel.fieldId, subfieldKey: sel.subfieldKey });
-              } else if (sel.kind === 'edge') {
+              } else if (sel.kind === 'edge' || sel.kind === 'edge-bundle') {
                 // keep current map drill level
               } else {
                 const node = map.nodes.find((n) => n.id === sel.id);
@@ -164,6 +176,7 @@ function App() {
             onNodeMove={moveNode}
             onTogglePin={togglePin}
             onAddEdge={readOnly ? undefined : addEdge}
+            focusNode={focusNode}
           />
         </div>
 
@@ -180,6 +193,7 @@ function App() {
             setDrill(EMPTY_DRILL);
           }}
           onSelect={handleSelect}
+          onFocusNode={handleFocusNode}
           onUpdate={updateNode}
           onUpdateEdge={updateEdge}
           onDelete={(id) => {

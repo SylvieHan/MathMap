@@ -766,6 +766,62 @@ html, body, #root {
   gap: 0.4rem;
 }
 
+.bundle-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bundle-link-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.45rem 0.5rem;
+  background: var(--bg-muted);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.bundle-link-theorem {
+  flex: 1 1 auto;
+  min-width: 5rem;
+  text-align: center;
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.bundle-link-theorem:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.connection-edge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.connection-target-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.connection-target-link:hover {
+  color: var(--text);
+}
+
 .connection-item {
   font-size: 0.85rem;
   line-height: 1.4;

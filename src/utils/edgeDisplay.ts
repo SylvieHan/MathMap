@@ -7,6 +7,8 @@ export type EdgeLod = 'field' | 'subfield' | 'concept';
 export interface RenderedEdge {
   id: string;
   sourceEdge: MapEdge;
+  /** All underlying connections (length 1 for individual concept edges). */
+  bundleEdges: MapEdge[];
   x1: number;
   y1: number;
   x2: number;
@@ -16,6 +18,9 @@ export interface RenderedEdge {
   bundleSize: number;
   lod: EdgeLod;
   conceptIds: string[];
+  fieldAId?: string;
+  fieldBId?: string;
+  label?: string;
 }
 
 export function edgeLod(level: DetailLevel): EdgeLod {
@@ -49,18 +54,6 @@ function conceptMeta(
   return { fieldId: node.parentId, subfieldKey: item.subfieldKey };
 }
 
-type EndpointKey = string;
-
-function endpointKey(fieldId: string, subfieldKey: string | null): EndpointKey {
-  return subfieldKey ? `${fieldId}::${subfieldKey}` : fieldId;
-}
-
-function parseEndpointKey(key: EndpointKey): { fieldId: string; subfieldKey: string | null } {
-  const idx = key.indexOf('::');
-  if (idx === -1) return { fieldId: key, subfieldKey: null };
-  return { fieldId: key.slice(0, idx), subfieldKey: key.slice(idx + 2) };
-}
-
 function resolvePoint(
   layout: CircleItem[],
   fieldId: string,
@@ -82,8 +75,23 @@ function bundleStrength(edges: MapEdge[]): number {
   return edges.reduce((sum, e) => sum + edgeStrength(e), 0);
 }
 
-export function buildRenderedEdges(
-  edges: MapEdge[],
+function edgePassesDrillFilter(
+  a: { fieldId: string; subfieldKey: string },
+  b: { fieldId: string; subfieldKey: string },
+  drill: { fieldId: string | null; subfieldKey: string | null },
+): boolean {
+  if (drill.subfieldKey) {
+    return a.subfieldKey === drill.subfieldKey || b.subfieldKey === drill.subfieldKey;
+  }
+  if (drill.fieldId) {
+    return a.fieldId === drill.fieldId || b.fieldId === drill.fieldId;
+  }
+  return true;
+}
+
+/** One line per connection at concept positions (used whenever not in fit-all field view). */
+function buildConceptLevelEdges(
+  realEdges: MapEdge[],
   nodes: MapNode[],
   layout: CircleItem[],
   level: DetailLevel,
@@ -92,38 +100,51 @@ export function buildRenderedEdges(
   visibleConceptIds: Set<string>,
 ): RenderedEdge[] {
   const lod = edgeLod(level);
-  const realEdges = edges.filter((e) => !isTagEdgeId(e.id));
+  const rendered: RenderedEdge[] = [];
 
-  if (lod === 'concept') {
-    const rendered: RenderedEdge[] = [];
-    for (const edge of realEdges) {
+  for (const edge of realEdges) {
+    const a = conceptMeta(nodes, layout, edge.source);
+    const b = conceptMeta(nodes, layout, edge.target);
+    if (!a || !b) continue;
+    if (!edgePassesDrillFilter(a, b, drill)) continue;
+
+    if (level === 'concepts') {
       if (!visibleConceptIds.has(edge.source) || !visibleConceptIds.has(edge.target)) continue;
-      const s = conceptPositions.get(edge.source);
-      const t = conceptPositions.get(edge.target);
-      if (!s || !t) continue;
-      rendered.push({
-        id: edge.id,
-        sourceEdge: edge,
-        x1: s.x,
-        y1: s.y,
-        x2: t.x,
-        y2: t.y,
-        crossField: isCrossFieldEdge(edge, nodes),
-        strength: edgeStrength(edge),
-        bundleSize: 1,
-        lod,
-        conceptIds: [edge.source, edge.target],
-      });
     }
-    return rendered;
+
+    const s = conceptPositions.get(edge.source);
+    const t = conceptPositions.get(edge.target);
+    if (!s || !t) continue;
+
+    rendered.push({
+      id: edge.id,
+      sourceEdge: edge,
+      bundleEdges: [edge],
+      x1: s.x,
+      y1: s.y,
+      x2: t.x,
+      y2: t.y,
+      crossField: isCrossFieldEdge(edge, nodes),
+      strength: edgeStrength(edge),
+      bundleSize: 1,
+      lod,
+      conceptIds: [edge.source, edge.target],
+    });
   }
 
+  return rendered;
+}
+
+/** Fit-all only: one bundled line per field pair between large-ball centers. */
+function buildFieldBundleEdges(
+  realEdges: MapEdge[],
+  nodes: MapNode[],
+  layout: CircleItem[],
+): RenderedEdge[] {
   type Bundle = {
     edges: MapEdge[];
     aField: string;
     bField: string;
-    aSubfield: string | null;
-    bSubfield: string | null;
     conceptIds: Set<string>;
   };
 
@@ -133,45 +154,15 @@ export function buildRenderedEdges(
     const a = conceptMeta(nodes, layout, edge.source);
     const b = conceptMeta(nodes, layout, edge.target);
     if (!a || !b) continue;
+    if (a.fieldId === b.fieldId) continue;
 
-    if (drill.subfieldKey) {
-      const inScope =
-        a.subfieldKey === drill.subfieldKey || b.subfieldKey === drill.subfieldKey;
-      if (!inScope) continue;
-    } else if (drill.fieldId) {
-      const inActiveField = a.fieldId === drill.fieldId || b.fieldId === drill.fieldId;
-      if (!inActiveField) continue;
-    }
-
-    let aKey: EndpointKey;
-    let bKey: EndpointKey;
-    let aSub: string | null;
-    let bSub: string | null;
-
-    if (lod === 'field') {
-      if (a.fieldId === b.fieldId) continue;
-      aKey = a.fieldId;
-      bKey = b.fieldId;
-      aSub = null;
-      bSub = null;
-    } else {
-      const sameField = a.fieldId === b.fieldId;
-      aSub = sameField ? a.subfieldKey : null;
-      bSub = sameField ? b.subfieldKey : null;
-      aKey = endpointKey(a.fieldId, aSub);
-      bKey = endpointKey(b.fieldId, bSub);
-      if (aKey === bKey) continue;
-    }
-
-    const groupKey = [aKey, bKey].sort().join('~~');
+    const groupKey = [a.fieldId, b.fieldId].sort().join('~~');
     let bundle = bundles.get(groupKey);
     if (!bundle) {
       bundle = {
         edges: [],
         aField: a.fieldId,
         bField: b.fieldId,
-        aSubfield: aSub,
-        bSubfield: bSub,
         conceptIds: new Set(),
       };
       bundles.set(groupKey, bundle);
@@ -185,32 +176,61 @@ export function buildRenderedEdges(
 
   for (const [groupKey, bundle] of bundles) {
     const rep = pickRepresentativeEdge(bundle.edges);
-    const crossField = bundle.aField !== bundle.bField;
-
-    const [keyA, keyB] = groupKey.split('~~');
-    const epA = parseEndpointKey(keyA);
-    const epB = parseEndpointKey(keyB);
-    const p1 = resolvePoint(layout, epA.fieldId, epA.subfieldKey);
-    const p2 = resolvePoint(layout, epB.fieldId, epB.subfieldKey);
-
+    const [fieldAId, fieldBId] = groupKey.split('~~');
+    const p1 = resolvePoint(layout, fieldAId, null);
+    const p2 = resolvePoint(layout, fieldBId, null);
     if (!p1 || !p2) continue;
+
+    const fieldA = nodes.find((n) => n.id === fieldAId);
+    const fieldB = nodes.find((n) => n.id === fieldBId);
 
     rendered.push({
       id: `bundle-${groupKey}`,
       sourceEdge: rep,
+      bundleEdges: [...bundle.edges],
       x1: p1.x,
       y1: p1.y,
       x2: p2.x,
       y2: p2.y,
-      crossField,
+      crossField: true,
       strength: bundleStrength(bundle.edges),
       bundleSize: bundle.edges.length,
-      lod,
+      lod: 'field',
       conceptIds: [...bundle.conceptIds],
+      fieldAId,
+      fieldBId,
+      label: `${fieldA?.title ?? fieldAId} ↔ ${fieldB?.title ?? fieldBId}`,
     });
   }
 
   return rendered;
+}
+
+export function buildRenderedEdges(
+  edges: MapEdge[],
+  nodes: MapNode[],
+  layout: CircleItem[],
+  level: DetailLevel,
+  drill: { fieldId: string | null; subfieldKey: string | null },
+  conceptPositions: Map<string, { x: number; y: number }>,
+  visibleConceptIds: Set<string>,
+): RenderedEdge[] {
+  const realEdges = edges.filter((e) => !isTagEdgeId(e.id));
+  const useFieldBundles = level === 'fields' && !drill.fieldId;
+
+  if (useFieldBundles) {
+    return buildFieldBundleEdges(realEdges, nodes, layout);
+  }
+
+  return buildConceptLevelEdges(
+    realEdges,
+    nodes,
+    layout,
+    level,
+    drill,
+    conceptPositions,
+    visibleConceptIds,
+  );
 }
 
 export function edgeTouchesConcept(edge: RenderedEdge, conceptId: string | null): boolean {
