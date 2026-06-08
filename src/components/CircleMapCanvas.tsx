@@ -21,7 +21,7 @@ import { pinchWheelZoomFactor, zoomTransformAtPoint } from '../utils/wheelZoom';
 import type { DrillState, MapSelection } from '../types/selection';
 import { EMPTY_DRILL } from '../types/selection';
 import {
-  dragTargetFromHit,
+  dragTargetFromHitInView,
   itemMatchesDragTarget,
   type DragTarget,
 } from '../utils/dragTarget';
@@ -629,7 +629,7 @@ export function CircleMapCanvas({
     const world = clientToWorld(e.clientX, e.clientY, rect, transformRef.current);
     const hit = hitTest(displayItems, world.x, world.y);
 
-    const dragTarget = hit ? dragTargetFromHit(hit) : undefined;
+    const dragTarget = hit ? dragTargetFromHitInView(hit, drill.fieldId) : undefined;
     const anchor = hit
       ? anchorById.get(hit.kind === 'concept' ? hit.node.id : hit.id)
       : undefined;
@@ -813,8 +813,8 @@ export function CircleMapCanvas({
           releaseTension: isConceptTension || isSubfieldTension,
           releaseContainer: isContainerDrag,
           releaseVelocity: {
-            vx: (d.releaseVx ?? 0) * 2.4,
-            vy: (d.releaseVy ?? 0) * 2.4,
+            vx: (d.releaseVx ?? 0) * 1.4,
+            vy: (d.releaseVy ?? 0) * 1.4,
           },
           onSettled: () => setTensionTarget(null),
         });
@@ -865,8 +865,8 @@ export function CircleMapCanvas({
       endDragGroup(d.dragTarget, {
         releaseTension: isConceptTension,
         releaseVelocity: {
-          vx: (d.releaseVx ?? 0) * 2.4,
-          vy: (d.releaseVy ?? 0) * 2.4,
+          vx: (d.releaseVx ?? 0) * 1.4,
+          vy: (d.releaseVy ?? 0) * 1.4,
         },
         onSettled: () => setTensionTarget(null),
       });

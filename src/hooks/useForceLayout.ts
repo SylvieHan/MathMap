@@ -14,6 +14,8 @@ import {
   stepContainerReleasePhysics,
   stepSubfieldLinkSprings,
   stepSubfieldReleaseSprings,
+  clampConceptNode,
+  snapConceptsToContainers,
   stepTensionSprings,
   syncChildrenToFields,
   zeroVelocities,
@@ -114,6 +116,13 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     }
   }, []);
 
+  /** Snap all children into containers and sync offsets (every field/subfield). */
+  const finalizeChildLayout = useCallback(() => {
+    snapConceptsToContainers(simNodesRef.current, tensionVelocitiesRef.current);
+    syncRelOffsetsFromField();
+    tensionVelocitiesRef.current.clear();
+  }, [syncRelOffsetsFromField]);
+
   const runContainerSettle = useCallback(
     (fieldId: string, childIds: string[], onSettled?: () => void) => {
       cancelTensionSettle();
@@ -132,8 +141,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
-          tensionVelocitiesRef.current.clear();
-          syncChildrenToFields(simNodesRef.current);
+          finalizeChildLayout();
           publishLayout();
           onSettled?.();
         }
@@ -141,7 +149,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
       tensionRafRef.current = requestAnimationFrame(tick);
     },
-    [cancelTensionSettle, publishLayout, syncRelOffsetsFromField],
+    [cancelTensionSettle, finalizeChildLayout, publishLayout, syncRelOffsetsFromField],
   );
 
   const runSubfieldSettle = useCallback(
@@ -169,10 +177,9 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
-          tensionVelocitiesRef.current.clear();
           isTensionSettlingRef.current = false;
           setIsTensionSettling(false);
-          syncChildrenToFields(simNodesRef.current);
+          finalizeChildLayout();
           publishLayout();
           reheat(0.22);
           onSettled?.();
@@ -181,7 +188,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
       tensionRafRef.current = requestAnimationFrame(tick);
     },
-    [cancelTensionSettle, edges, publishLayout, reheat, syncRelOffsetsFromField],
+    [cancelTensionSettle, edges, finalizeChildLayout, publishLayout, reheat, syncRelOffsetsFromField],
   );
 
   const runTensionSettle = useCallback(
@@ -212,10 +219,9 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
           tensionRafRef.current = requestAnimationFrame(tick);
         } else {
           tensionRafRef.current = null;
-          velocities.clear();
           isTensionSettlingRef.current = false;
           setIsTensionSettling(false);
-          syncChildrenToFields(simNodesRef.current);
+          finalizeChildLayout();
           publishLayout();
           reheat(0.22);
           onSettled?.();
@@ -224,7 +230,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
 
       tensionRafRef.current = requestAnimationFrame(tick);
     },
-    [cancelTensionSettle, edges, nodes, publishLayout, reheat, syncRelOffsetsFromField],
+    [cancelTensionSettle, edges, finalizeChildLayout, nodes, publishLayout, reheat, syncRelOffsetsFromField],
   );
 
   useEffect(() => {
@@ -342,6 +348,11 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
         n.fy = orig.y + offsetY;
         n.x = n.fx;
         n.y = n.fy;
+        if (target.kind === 'concept') {
+          clampConceptNode(simNodes, n, tensionVelocitiesRef.current);
+          n.fx = n.x;
+          n.fy = n.y;
+        }
       }
 
       const anchor = primaryId ? simNodes.find((sn) => sn.id === primaryId) : null;
@@ -491,8 +502,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
         return;
       }
 
-      tensionVelocitiesRef.current.clear();
-      syncChildrenToFields(simNodesRef.current);
+      finalizeChildLayout();
       publishLayout();
       if (target?.kind !== 'field') {
         reheat(0.28);
@@ -500,6 +510,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
       options?.onSettled?.();
     },
     [
+      finalizeChildLayout,
       publishLayout,
       reheat,
       releaseFieldSprings,

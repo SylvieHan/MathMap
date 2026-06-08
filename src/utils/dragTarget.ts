@@ -14,6 +14,16 @@ export function dragTargetFromHit(hit: CircleItem): DragTarget | null {
   return null;
 }
 
+/** Field balls are only draggable on the fit-all overview (not when drilled into a field). */
+export function dragTargetFromHitInView(
+  hit: CircleItem,
+  drilledFieldId: string | null,
+): DragTarget | null {
+  const target = dragTargetFromHit(hit);
+  if (target?.kind === 'field' && drilledFieldId) return null;
+  return target;
+}
+
 export function itemMatchesDragTarget(item: CircleItem, target: DragTarget): boolean {
   switch (target.kind) {
     case 'concept':
