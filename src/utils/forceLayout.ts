@@ -772,7 +772,7 @@ export function stepSubfieldReleaseSprings(
       v.vy = (v.vy + f.fy) * TENSION_DAMPING;
       velocities.set(id, v);
       n.x += v.vx;
-      n.y += v.y;
+      n.y += v.vy;
       clampInsideFieldDisc(n, fields, velocities);
       maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
     }
