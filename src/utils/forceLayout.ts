@@ -7,6 +7,8 @@ import {
 } from 'd3-force';
 import type { MapEdge, MapNode } from '../types';
 import { isTagEdgeId } from './layout';
+
+const TENSION_ITERATIONS = 16;
 import {
   computeCircleLayout,
   getSubfieldLabel,
@@ -253,6 +255,67 @@ export function simNodeIdsForDragTarget(
               : n.kind === 'concept' && n.subfieldKey === target.subfieldKey),
         )
         .map((n) => n.id);
+  }
+}
+
+/** Pull linked concepts toward the dragged node (shift-drag tension). */
+export function applyConnectionTension(
+  simNodes: ForceSimNode[],
+  draggedConceptId: string,
+  edges: MapEdge[],
+  nodes: MapNode[],
+): void {
+  const concepts = simNodes.filter((n) => n.kind === 'concept');
+  const byId = new Map(concepts.map((n) => [n.id, n]));
+  const dragged = byId.get(draggedConceptId);
+  if (!dragged) return;
+
+  const fields = new Map(
+    simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
+  );
+
+  const clampInField = (n: ForceSimNode) => {
+    if (n.id === draggedConceptId || n.mapNode.pinned) return;
+    const f = fields.get(n.fieldId);
+    if (!f) return;
+    let dx = n.x - f.x;
+    let dy = n.y - f.y;
+    const dist = Math.hypot(dx, dy);
+    const maxD = Math.max(f.r - n.r - 5, 8);
+    if (dist > maxD && dist > 0) {
+      dx = (dx / dist) * maxD;
+      dy = (dy / dist) * maxD;
+      n.x = f.x + dx;
+      n.y = f.y + dy;
+    }
+  };
+
+  for (let iter = 0; iter < TENSION_ITERATIONS; iter++) {
+    for (const edge of edges) {
+      if (isTagEdgeId(edge.id)) continue;
+      if (edge.source !== draggedConceptId && edge.target !== draggedConceptId) continue;
+
+      const otherId = edge.source === draggedConceptId ? edge.target : edge.source;
+      const other = byId.get(otherId);
+      if (!other || other.mapNode.pinned) continue;
+
+      const na = nodes.find((n) => n.id === draggedConceptId);
+      const nb = nodes.find((n) => n.id === otherId);
+      const crossField = na?.parentId !== nb?.parentId;
+      const sameSubfield =
+        dragged.subfieldKey === other.subfieldKey && dragged.fieldId === other.fieldId;
+      const w = edge.weight ?? 1;
+
+      const dx = dragged.x - other.x;
+      const dy = dragged.y - other.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ideal = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
+      const strength = crossField ? 0.14 : sameSubfield ? 0.32 : 0.2;
+      const pull = (dist - ideal) * strength * w;
+      other.x += (dx / dist) * pull;
+      other.y += (dy / dist) * pull;
+    }
+    for (const n of concepts) clampInField(n);
   }
 }
 

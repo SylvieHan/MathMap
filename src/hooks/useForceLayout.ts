@@ -5,6 +5,7 @@ import type { MapEdge, MapNode } from '../types';
 import type { DragTarget } from '../utils/dragTarget';
 import type { CircleItem } from '../utils/circleLayout';
 import {
+  applyConnectionTension,
   buildForceGraph,
   createFieldSimulation,
   primarySimNodeIdsForDragTarget,
@@ -14,6 +15,11 @@ import {
   zeroVelocities,
   type ForceSimNode,
 } from '../utils/forceLayout';
+
+export interface MoveDragOptions {
+  /** Shift-drag: pull connected concepts on springs. */
+  tensionLinks?: boolean;
+}
 
 const ENTRY_ALPHA = 0.38;
 /** How quickly children catch up when dragging a field or subfield (0–1 per move). */
@@ -135,7 +141,7 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   );
 
   const moveDragGroup = useCallback(
-    (target: DragTarget, offsetX: number, offsetY: number) => {
+    (target: DragTarget, offsetX: number, offsetY: number, options?: MoveDragOptions) => {
       const simNodes = simNodesRef.current;
       const primaryIds = primarySimNodeIdsForDragTarget(target);
       const primaryId = dragPrimaryIdRef.current;
@@ -162,10 +168,14 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
         }
       }
 
+      if (options?.tensionLinks && target.kind === 'concept') {
+        applyConnectionTension(simNodes, target.nodeId, edges, nodes);
+      }
+
       syncRelOffsetsFromField();
       publishLayout();
     },
-    [publishLayout, syncRelOffsetsFromField],
+    [edges, nodes, publishLayout, syncRelOffsetsFromField],
   );
 
   const endDragGroup = useCallback(() => {

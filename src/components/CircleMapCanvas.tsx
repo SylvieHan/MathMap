@@ -623,9 +623,14 @@ export function CircleMapCanvas({
       const dist = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
 
       if (d.mode === 'pending' && dist >= DRAG_THRESHOLD) {
-        if (d.dragTarget && d.anchorX !== undefined && d.anchorY !== undefined) {
+        if (
+          e.shiftKey &&
+          d.dragTarget &&
+          d.anchorX !== undefined &&
+          d.anchorY !== undefined
+        ) {
           d.mode = 'node';
-          if (e.shiftKey) setTensionTarget(d.dragTarget);
+          setTensionTarget(d.dragTarget);
           setIsForceDragging(true);
           beginDragGroup(d.dragTarget);
         } else {
@@ -656,7 +661,9 @@ export function CircleMapCanvas({
         const world = clientToWorld(e.clientX, e.clientY, rect, transformRef.current);
         const offsetX = world.x - d.grabOx - d.anchorX;
         const offsetY = world.y - d.grabOy - d.anchorY;
-        moveDragGroup(d.dragTarget, offsetX, offsetY);
+        moveDragGroup(d.dragTarget, offsetX, offsetY, {
+          tensionLinks: d.dragTarget.kind === 'concept',
+        });
       }
 
       if (d.mode !== 'pending') {
