@@ -381,10 +381,6 @@ export function clampConceptNode(
   clampConceptContainers(node, simNodes, fields, velocities);
 }
 
-function clampConceptInField(n: ForceSimNode, fields: Map<string, ForceSimNode>): void {
-  clampInsideFieldDisc(n, fields);
-}
-
 function capVelocity(v: { vx: number; vy: number }, max = MAX_DRAG_SPEED): void {
   const speed = Math.hypot(v.vx, v.vy);
   if (speed > max) {
