@@ -147,6 +147,8 @@ export function CircleMapCanvas({
   const cancelCameraRef = useRef<(() => void) | null>(null);
   const cancelMomentumRef = useRef<(() => void) | null>(null);
   const drillReadyRef = useRef(false);
+  /** Drill target the camera has already centered on, so we don't re-center (chase) it on every layout tick. */
+  const centeredDrillRef = useRef<string | null>(null);
 
   useEffect(() => {
     transformRef.current = transform;
@@ -453,7 +455,16 @@ export function CircleMapCanvas({
   }, [focusNode?.nodeId, focusNode?.seq, focusOnNode]);
 
   useEffect(() => {
-    if (!drill.fieldId) return;
+    if (!drill.fieldId) {
+      centeredDrillRef.current = null;
+      return;
+    }
+    // Center the camera ONCE when the drill target changes — never re-center on
+    // subsequent `layout` updates, or the camera chases a field that is still
+    // moving (e.g. mid-settle) and appears frozen. `layout` stays in deps so we
+    // can retry on the next tick if the target isn't in the layout yet.
+    const key = `${drill.fieldId}:${drill.subfieldKey ?? ''}`;
+    if (centeredDrillRef.current === key) return;
     const duration = drillReadyRef.current ? CAMERA_MS : 0;
     if (drill.subfieldKey) {
       const sf = layout.find(
@@ -462,11 +473,14 @@ export function CircleMapCanvas({
           it.fieldId === drill.fieldId &&
           it.subfieldKey === drill.subfieldKey,
       );
-      if (sf) centerOn(sf.x, sf.y, 1.45, duration);
+      if (!sf) return;
+      centerOn(sf.x, sf.y, 1.45, duration);
     } else {
       const field = layout.find((it) => it.id === drill.fieldId && it.kind === 'field');
-      if (field) centerOn(field.x, field.y, 0.88, duration);
+      if (!field) return;
+      centerOn(field.x, field.y, 0.88, duration);
     }
+    centeredDrillRef.current = key;
     drillReadyRef.current = true;
   }, [drill.fieldId, drill.subfieldKey, layout, centerOn]);
 
@@ -712,9 +726,7 @@ export function CircleMapCanvas({
           d.mode = 'node';
           setTensionTarget(d.dragTarget);
           setIsForceDragging(true);
-          beginDragGroup(d.dragTarget, {
-            keepFieldSim: d.dragTarget.kind === 'field' && !drill.fieldId,
-          });
+          beginDragGroup(d.dragTarget);
         } else {
           d.mode = 'pan';
           setIsPanning(true);
@@ -753,10 +765,7 @@ export function CircleMapCanvas({
         d.lastOffsetX = offsetX;
         d.lastOffsetY = offsetY;
         d.lastMoveT = now;
-        moveDragGroup(d.dragTarget, offsetX, offsetY, {
-          tensionLinks:
-            d.dragTarget.kind === 'concept' || d.dragTarget.kind === 'subfield',
-        });
+        moveDragGroup(d.dragTarget, offsetX, offsetY);
       }
 
       if (d.mode !== 'pending') {
@@ -804,23 +813,14 @@ export function CircleMapCanvas({
         d.grabOy !== undefined &&
         svgRef.current
       ) {
-        const isConceptTension = d.dragTarget.kind === 'concept';
-        const isSubfieldTension = d.dragTarget.kind === 'subfield';
-        const isContainerDrag =
-          d.dragTarget.kind === 'field' || d.dragTarget.kind === 'subfield';
         setIsForceDragging(false);
         endDragGroup(d.dragTarget, {
-          releaseTension: isConceptTension || isSubfieldTension,
-          releaseContainer: isContainerDrag,
           releaseVelocity: {
             vx: (d.releaseVx ?? 0) * 1.4,
             vy: (d.releaseVy ?? 0) * 1.4,
           },
           onSettled: () => setTensionTarget(null),
         });
-        if (!isConceptTension && !isSubfieldTension && !isContainerDrag) {
-          setTensionTarget(null);
-        }
       } else if (d.mode === 'pan') {
         const elapsed = Math.max(1, performance.now() - (d.lastPanT ?? performance.now()));
         const vx = ((e.clientX - (d.lastPanX ?? e.clientX)) / elapsed) * 16;
@@ -860,17 +860,14 @@ export function CircleMapCanvas({
       d.grabOy !== undefined &&
       svgRef.current
     ) {
-      const isConceptTension = d.dragTarget.kind === 'concept';
       setIsForceDragging(false);
       endDragGroup(d.dragTarget, {
-        releaseTension: isConceptTension,
         releaseVelocity: {
           vx: (d.releaseVx ?? 0) * 1.4,
           vy: (d.releaseVy ?? 0) * 1.4,
         },
         onSettled: () => setTensionTarget(null),
       });
-      if (!isConceptTension) setTensionTarget(null);
     }
     if (dragRef.current) {
       dragRef.current = null;

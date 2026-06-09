@@ -22,6 +22,7 @@ dist-ssr
 
 # Cursor / editor local state
 .cursor/
+.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea

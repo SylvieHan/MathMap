@@ -16,8 +16,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "cytoscape": "^3.34.0",
-    "cytoscape-fcose": "^2.2.0",
     "d3-force": "^3.0.0",
     "idb": "^8.0.3",
     "jszip": "^3.10.1",

@@ -1,6 +1,6 @@
 # MathMap — Developer handoff
 
-> **New to this folder?** Read **[START-HERE.md](./START-HERE.md)** first for the reading order and first steps.
+> **New here?** Read the **[README](../README.md)** first for the big picture, then the **[User Guide](./USER-GUIDE.md)** if you want to run the editor.
 
 This document is for a human developer taking over the project.
 
@@ -51,7 +51,7 @@ Editor opens at **http://localhost:5173** (Vite default). Launchers use `--open 
 | Script | Purpose |
 |--------|---------|
 | `npm run dev` | Local **editor** (full UI, IndexedDB) |
-| `npm run dev:site` | Local preview of **published** read-only site |
+| `npm run dev:site` | Dev server with the published flag set (note: in dev the editor still starts blank — to preview the curated read-only map use `build:site` + `preview`) |
 | `npm run build` | Typecheck + production build (editor default) |
 | `npm run build:site` | Build with `VITE_PUBLISHED_SITE=true` |
 | `npm run build:pages` | GitHub Pages build (`/MathMap/` base path) |
@@ -69,14 +69,16 @@ MathMap/
 ├── Start MathMap.command   # macOS double-click → start-mathmap.sh
 ├── start-mathmap.sh        # macOS/Linux launcher
 ├── start-mathmap.bat       # Windows launcher
-├── GETTING-STARTED.md      # End-user guide
-├── PUBLISH.md              # How to deploy the read-only site
-├── DEVELOPER.md              # This file
-├── README.md                 # Project overview
+├── README.md               # Project overview + quick start
+├── docs/
+│   ├── USER-GUIDE.md       # End-user guide (running the editor)
+│   ├── DEVELOPER.md        # This file
+│   └── PUBLISH.md          # How to deploy the read-only site
 ├── package.json
 ├── vite.config.ts            # base path for GitHub Pages vs local
 ├── scripts/
 │   ├── export-bundled-map.ts # richSeed → public/bundled-map.json
+│   ├── physics-test.ts       # headless drag-physics regression test
 │   └── deploy-site.mjs       # npm run deploy (gh-pages)
 ├── public/
 │   ├── bundled-map.json      # Generated; shipped with published build
@@ -242,15 +244,38 @@ This is the most complex part of the codebase.
 
 ### Layout
 
-1. **Field-level physics** — `d3-force` simulation in `forceLayout.ts` / `useForceLayout.ts`. Only **field folder** nodes are simulation bodies; concepts/subfields follow via offset sync (`syncChildrenToFields`).
+1. **Field-level layout** — `d3-force` simulation in `forceLayout.ts` / `useForceLayout.ts`. Only **field folder** nodes are d3 bodies; field-relative offsets (`relDx/relDy`) let subfields/concepts follow their field via `syncChildrenToFields`.
 2. **Circle packing** — spiral pack inside field discs (`packInCircle` in `circleLayout.ts`).
-3. **Concept radius** — from content weight, edge count, tags (`conceptRadius`).
+3. **Concept radius** — `conceptRadius` in `circleLayout.ts`, **content-dominant** (number of content blocks drives size; links/tags nudge it).
 
 **Re-layout** (toolbar): unpinned nodes get `position: {0,0}`; simulation re-runs from scratch.
 
 **Pin:** double-click node toggles `pinned`; pinned nodes are fixed during simulation.
 
-**Shift+drag:** adjusts “tension” / manual offset (works in read-only too for exploration feel).
+### Drag physics — unified integrator
+
+Concept and subfield drag/release run through **one** semi-implicit Euler integrator,
+`stepSimulation` in `forceLayout.ts` (it replaced five overlapping per-target step
+functions). The same loop is used for the drag frame (the dragged body held in
+`fixedIds`) and the release settle (nothing held). Each substep:
+
+1. Accumulate **elastic-band** spring forces (one-sided: a link only pulls when
+   stretched past its rest length, so springs never fight the no-overlap pass).
+2. Integrate velocity with a single `DAMPING` coefficient (the "friction").
+3. Integrate position.
+4. Project hard constraints: no-overlap separation (`separateCircleOverlaps`) then
+   boundary containment (concept → subfield disc → field disc), killing the outward
+   normal velocity on contact.
+
+The settle loop sleeps when the max body speed drops below `SLEEP_THRESHOLD`
+(`SETTLE_MAX_FRAMES` is only a safety cap), so motion always comes to rest — no
+annealing/cool-down hacks. **Fields stay in the d3 sim** (inter-field layout); a
+whole-field drag drives the field and its concepts ride along rigidly via offsets.
+
+**Shift+drag** moves a ball with this physics; a plain drag always pans the canvas
+(it never grabs a ball). Works in read-only too, for an exploratory feel.
+
+Headless regression test: `npx tsx scripts/physics-test.ts` (see §15).
 
 ### Interaction (`CircleMapCanvas.tsx`)
 
@@ -387,8 +412,6 @@ Would need new API, auth, and conflict resolution. Current design deliberately a
 |------|-------|
 | **Collaboration** | Export/merge `.mathmap` only; no real-time sync |
 | **Layout** | Large maps may need performance tuning; simulation runs on main thread |
-| **README drift** | Some README lines still mention GitHub Actions deploy — actual path is `npm run deploy` |
-| **Cytoscape** | Listed in `package.json` but circle map replaced graph canvas; dependency may be removable |
 | **Markdown** | Lightweight custom parser, not full CommonMark |
 | **Mobile** | Usable but optimized for desktop trackpad/mouse |
 
@@ -396,14 +419,28 @@ Would need new API, auth, and conflict resolution. Current design deliberately a
 
 ## 15. Testing & quality
 
-No automated test suite yet. Manual checklist:
+**Physics regression test (headless):**
+
+```bash
+npx tsx scripts/physics-test.ts
+```
+
+Exercises the real `stepSimulation` integrator against the bundled map and asserts
+the drag invariants: concepts never overlap or leave their field/subfield discs
+(during drag and after release), no tunneling under fast drag, motion energy decays
+(friction), and every release comes to rest naturally before the safety-frame cap.
+Run it after any change to `forceLayout.ts` / `useForceLayout.ts`.
+
+**Lint + build:** `npm run lint` (0 errors) and `npm run build` must pass.
+
+**Manual checklist:**
 
 - [ ] `npm run dev` — blank map, full toolbar on **one row**, search centered
 - [ ] Add concept, folder, edge; export; import replace + merge
-- [ ] Pin, re-layout, shift+drag tension
+- [ ] Pin, re-layout; **Shift+drag** a ball and release — it pulls toward its links, collides, and settles; plain drag pans
 - [ ] LaTeX settings persist after reload
-- [ ] `npm run dev:site` — read-only, rich map loads
 - [ ] Pinch zoom on map (not browser zoom)
+- [ ] `npm run build:site` then `npm run preview` — read-only, curated map loads
 - [ ] `npm run build` && `npm run lint` pass
 
 ---

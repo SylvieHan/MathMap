@@ -1,48 +1,69 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Simulation } from 'd3-force';
-import type { SimLink } from '../utils/forceLayout';
 import type { MapEdge, MapNode } from '../types';
 import type { DragTarget } from '../utils/dragTarget';
 import type { CircleItem } from '../utils/circleLayout';
 import {
-  annealSettleVelocities,
   buildForceGraph,
   createFieldSimulation,
   primarySimNodeIdsForDragTarget,
-  simNodeIdsForDragTarget,
   simNodesToCircleItems,
-  stepContainerDragPhysics,
-  stepContainerReleasePhysics,
-  stepSubfieldLinkSprings,
-  stepSubfieldReleaseSprings,
   clampConceptNode,
+  clampInsideFieldDisc,
   snapConceptsToContainers,
-  stepTensionSprings,
+  stepSimulation,
+  settleDamping,
   syncChildrenToFields,
   zeroVelocities,
+  SETTLE_MAX_FRAMES,
+  SLEEP_THRESHOLD,
+  type SimLink,
   type ForceSimNode,
+  type SimKind,
 } from '../utils/forceLayout';
 
-export interface BeginDragOptions {
-  /** Keep d3 field-field simulation alive (fit-all field drag). */
-  keepFieldSim?: boolean;
-}
-
-export interface MoveDragOptions {
-  /** Shift-drag: pull connected nodes on springs. */
-  tensionLinks?: boolean;
-}
-
 export interface EndDragOptions {
-  /** Run spring settle after releasing a concept. */
-  releaseTension?: boolean;
-  /** Run interior momentum settle after releasing a field or subfield. */
-  releaseContainer?: boolean;
+  /** Pointer flick velocity carried into the release settle. */
   releaseVelocity?: { vx: number; vy: number };
   onSettled?: () => void;
 }
 
 const ENTRY_ALPHA = 0.38;
+
+/** Which bodies a given drag wakes up, and which field(s) it touches. */
+interface DragScope {
+  movableKinds: Set<SimKind>;
+  activeFieldIds: Set<string>;
+  primaryId: string | null;
+}
+
+function dragScopeFor(target: DragTarget, simNodes: ForceSimNode[]): DragScope {
+  const primaryId = primarySimNodeIdsForDragTarget(target)[0] ?? null;
+  if (target.kind === 'concept') {
+    const n = simNodes.find((s) => s.id === target.nodeId);
+    return {
+      movableKinds: new Set<SimKind>(['concept']),
+      activeFieldIds: new Set(n ? [n.fieldId] : []),
+      primaryId,
+    };
+  }
+  if (target.kind === 'subfield') {
+    return {
+      // Wake subfields + concepts: the dragged subfield carries its concepts
+      // (they stay inside its disc), and sibling subfields react on bands.
+      movableKinds: new Set<SimKind>(['subfield', 'concept']),
+      activeFieldIds: new Set([target.fieldId]),
+      primaryId,
+    };
+  }
+  // Field drag: the whole hierarchy is awake so other fields react elastically
+  // and every field's interior jostles inside its moving disc.
+  return {
+    movableKinds: new Set<SimKind>(['field', 'subfield', 'concept']),
+    activeFieldIds: new Set(simNodes.filter((s) => s.kind === 'field').map((s) => s.fieldId)),
+    primaryId,
+  };
+}
 
 export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const [layout, setLayout] = useState<CircleItem[]>([]);
@@ -50,27 +71,22 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
   const [isTensionSettling, setIsTensionSettling] = useState(false);
   const simRef = useRef<Simulation<ForceSimNode, SimLink> | null>(null);
   const simNodesRef = useRef<ForceSimNode[]>([]);
-  const dragOriginsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const dragChildIdsRef = useRef<string[]>([]);
-  const dragChildWorldRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const dragPrimaryIdRef = useRef<string | null>(null);
-  const lastContainerPosRef = useRef<{ x: number; y: number } | null>(null);
-  const tensionVelocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
-  const tensionRafRef = useRef<number | null>(null);
+  const dragPrimaryOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const dragScopeRef = useRef<DragScope | null>(null);
+  const velocitiesRef = useRef<Map<string, { vx: number; vy: number }>>(new Map());
+  const settleRafRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
-  const isTensionSettlingRef = useRef(false);
-  const keepFieldSimRef = useRef(false);
-  const pinnedFieldIdsRef = useRef<Set<string>>(new Set());
-  const skipSyncChildIdsRef = useRef<Set<string>>(new Set());
+  const isSettlingRef = useRef(false);
 
   const graphKey = `${nodes.length}:${edges.length}:${nodes.map((n) => `${n.id}:${n.position.x},${n.position.y}:${n.pinned}`).join(';')}`;
 
-  const publishLayout = useCallback(() => {
-    syncChildrenToFields(simNodesRef.current, skipSyncChildIdsRef.current);
+  /** Render current sim-node positions (no repositioning — the sim owns them). */
+  const renderLayout = useCallback(() => {
     setLayout(simNodesToCircleItems(simNodesRef.current));
   }, []);
 
-  const stopSimulation = useCallback(() => {
+  const stopFieldSim = useCallback(() => {
     const sim = simRef.current;
     if (!sim) return;
     sim.stop();
@@ -78,32 +94,16 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     setIsSettling(false);
   }, []);
 
-  const cancelTensionSettle = useCallback(() => {
-    if (tensionRafRef.current !== null) {
-      cancelAnimationFrame(tensionRafRef.current);
-      tensionRafRef.current = null;
+  const cancelSettle = useCallback(() => {
+    if (settleRafRef.current !== null) {
+      cancelAnimationFrame(settleRafRef.current);
+      settleRafRef.current = null;
     }
-    isTensionSettlingRef.current = false;
+    isSettlingRef.current = false;
     setIsTensionSettling(false);
   }, []);
 
-  const reheat = useCallback((alpha = 0.32) => {
-    const sim = simRef.current;
-    if (!sim) return;
-    setIsSettling(true);
-    sim.velocityDecay(0.62);
-    sim.alpha(Math.max(sim.alpha(), alpha)).alphaTarget(0).restart();
-  }, []);
-
-  /** Immediate spring-back for large field balls after release. */
-  const releaseFieldSprings = useCallback(() => {
-    const sim = simRef.current;
-    if (!sim) return;
-    setIsSettling(true);
-    sim.velocityDecay(0.4);
-    sim.alpha(0.92).alphaTarget(0).restart();
-  }, []);
-
+  /** Capture child positions as field-relative offsets (for the d3 follow). */
   const syncRelOffsetsFromField = useCallback(() => {
     const fields = new Map(
       simNodesRef.current.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
@@ -117,155 +117,85 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     }
   }, []);
 
-  /** Snap all children into containers and sync offsets (every field/subfield). */
-  const finalizeChildLayout = useCallback(() => {
-    snapConceptsToContainers(simNodesRef.current, tensionVelocitiesRef.current);
+  /** Final tidy after a settle: snap children into discs, refresh offsets. */
+  const finalize = useCallback(() => {
+    snapConceptsToContainers(simNodesRef.current, velocitiesRef.current);
     syncRelOffsetsFromField();
-    tensionVelocitiesRef.current.clear();
+    velocitiesRef.current.clear();
   }, [syncRelOffsetsFromField]);
 
-  const runContainerSettle = useCallback(
-    (fieldId: string, childIds: string[], onSettled?: () => void) => {
-      cancelTensionSettle();
-
-      let frame = 0;
-      const tick = () => {
-        const moving = stepContainerReleasePhysics(
-          simNodesRef.current,
-          fieldId,
-          childIds,
-          tensionVelocitiesRef.current,
-        );
-        const cooled = annealSettleVelocities(tensionVelocitiesRef.current, frame++);
-        syncRelOffsetsFromField();
-        publishLayout();
-
-        if (moving && !cooled) {
-          tensionRafRef.current = requestAnimationFrame(tick);
-        } else {
-          tensionRafRef.current = null;
-          finalizeChildLayout();
-          publishLayout();
-          onSettled?.();
-        }
-      };
-
-      tensionRafRef.current = requestAnimationFrame(tick);
-    },
-    [cancelTensionSettle, finalizeChildLayout, publishLayout, syncRelOffsetsFromField],
-  );
-
-  const runSubfieldSettle = useCallback(
-    (subfieldSimId: string, releaseVelocity: { vx: number; vy: number }, onSettled?: () => void) => {
-      cancelTensionSettle();
-      const existing = tensionVelocitiesRef.current.get(subfieldSimId) ?? { vx: 0, vy: 0 };
-      tensionVelocitiesRef.current.set(subfieldSimId, {
-        vx: existing.vx + releaseVelocity.vx,
-        vy: existing.vy + releaseVelocity.vy,
-      });
-
-      isTensionSettlingRef.current = true;
+  /**
+   * Release settle: run the unified integrator (nothing fixed) until motion
+   * falls below the sleep threshold or the safety cap. The released body is
+   * pulled back by its elastic bands and bled off by friction until it rests.
+   */
+  const runSettle = useCallback(
+    (onSettled?: () => void) => {
+      cancelSettle();
+      const scope = dragScopeRef.current;
+      if (!scope) {
+        onSettled?.();
+        return;
+      }
+      isSettlingRef.current = true;
       setIsTensionSettling(true);
 
       let frame = 0;
       const tick = () => {
-        const moving = stepSubfieldReleaseSprings(
-          simNodesRef.current,
-          edges,
-          tensionVelocitiesRef.current,
-        );
-        const cooled = annealSettleVelocities(tensionVelocitiesRef.current, frame++);
-        syncRelOffsetsFromField();
-        publishLayout();
-
-        if (moving && !cooled) {
-          tensionRafRef.current = requestAnimationFrame(tick);
-        } else {
-          tensionRafRef.current = null;
-          isTensionSettlingRef.current = false;
-          setIsTensionSettling(false);
-          finalizeChildLayout();
-          publishLayout();
-          reheat(0.22);
-          onSettled?.();
-        }
-      };
-
-      tensionRafRef.current = requestAnimationFrame(tick);
-    },
-    [cancelTensionSettle, edges, finalizeChildLayout, publishLayout, reheat, syncRelOffsetsFromField],
-  );
-
-  const runTensionSettle = useCallback(
-    (conceptId: string, releaseVelocity: { vx: number; vy: number }, onSettled?: () => void) => {
-      cancelTensionSettle();
-      const velocities = tensionVelocitiesRef.current;
-      const existing = velocities.get(conceptId) ?? { vx: 0, vy: 0 };
-      velocities.set(conceptId, {
-        vx: existing.vx + releaseVelocity.vx,
-        vy: existing.vy + releaseVelocity.vy,
-      });
-
-      isTensionSettlingRef.current = true;
-      setIsTensionSettling(true);
-
-      let frame = 0;
-      const tick = () => {
-        const moving = stepTensionSprings(
-          simNodesRef.current,
-          null,
+        const speed = stepSimulation({
+          simNodes: simNodesRef.current,
           edges,
           nodes,
-          velocities,
-        );
-        const cooled = annealSettleVelocities(velocities, frame++);
-        syncRelOffsetsFromField();
-        publishLayout();
+          velocities: velocitiesRef.current,
+          fixedIds: new Set(),
+          movableKinds: scope.movableKinds,
+          activeFieldIds: scope.activeFieldIds,
+        }, { damping: settleDamping(frame) });
+        renderLayout();
+        frame += 1;
 
-        if (moving && !cooled) {
-          tensionRafRef.current = requestAnimationFrame(tick);
+        if (speed > SLEEP_THRESHOLD && frame < SETTLE_MAX_FRAMES) {
+          settleRafRef.current = requestAnimationFrame(tick);
         } else {
-          tensionRafRef.current = null;
-          isTensionSettlingRef.current = false;
+          settleRafRef.current = null;
+          isSettlingRef.current = false;
           setIsTensionSettling(false);
-          finalizeChildLayout();
-          publishLayout();
-          reheat(0.22);
+          finalize();
+          renderLayout();
           onSettled?.();
         }
       };
 
-      tensionRafRef.current = requestAnimationFrame(tick);
+      settleRafRef.current = requestAnimationFrame(tick);
     },
-    [cancelTensionSettle, edges, finalizeChildLayout, nodes, publishLayout, reheat, syncRelOffsetsFromField],
+    [cancelSettle, edges, nodes, finalize, renderLayout],
   );
 
   useEffect(() => {
-    cancelTensionSettle();
+    cancelSettle();
     simRef.current?.stop();
     const { simNodes, fieldNodes, fieldLinks } = buildForceGraph(nodes, edges);
     simNodesRef.current = simNodes;
-    dragOriginsRef.current.clear();
-    dragChildIdsRef.current = [];
-    dragChildWorldRef.current.clear();
     dragPrimaryIdRef.current = null;
-    lastContainerPosRef.current = null;
-    tensionVelocitiesRef.current.clear();
+    dragPrimaryOriginRef.current = null;
+    dragScopeRef.current = null;
+    velocitiesRef.current.clear();
     isDraggingRef.current = false;
 
-    publishLayout();
+    renderLayout();
 
+    // d3 only lays out the fields initially; all dragging/settling goes through
+    // the unified integrator. While dragging or settling, the d3 tick is idle.
     const sim = createFieldSimulation(fieldNodes, fieldLinks);
     sim.on('tick', () => {
-      if (isTensionSettlingRef.current) return;
-      if (isDraggingRef.current && !keepFieldSimRef.current) return;
-      syncChildrenToFields(simNodesRef.current, skipSyncChildIdsRef.current);
-      publishLayout();
+      if (isSettlingRef.current || isDraggingRef.current) return;
+      syncChildrenToFields(simNodesRef.current);
+      renderLayout();
     });
     sim.on('end', () => {
       syncChildrenToFields(simNodesRef.current);
       zeroVelocities(simNodesRef.current);
-      publishLayout();
+      renderLayout();
       setIsSettling(false);
     });
 
@@ -274,258 +204,114 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     simRef.current = sim;
 
     return () => {
-      cancelTensionSettle();
+      cancelSettle();
       sim.stop();
       simRef.current = null;
       setIsSettling(false);
     };
-  }, [graphKey, nodes, edges, publishLayout, cancelTensionSettle]);
+  }, [graphKey, nodes, edges, renderLayout, cancelSettle]);
 
   const beginDragGroup = useCallback(
-    (target: DragTarget, options?: BeginDragOptions) => {
-      cancelTensionSettle();
+    (target: DragTarget) => {
+      cancelSettle();
       const simNodes = simNodesRef.current;
-      keepFieldSimRef.current = options?.keepFieldSim ?? false;
-      const primaryIds = primarySimNodeIdsForDragTarget(target);
-      const groupIds = simNodeIdsForDragTarget(target, simNodes);
-      const primaryId = primaryIds[0] ?? null;
-      dragPrimaryIdRef.current = primaryId;
-
-      const origins = new Map<string, { x: number; y: number }>();
-      for (const id of groupIds) {
-        const n = simNodes.find((sn) => sn.id === id);
-        if (!n) continue;
-        origins.set(id, { x: n.x, y: n.y });
-      }
-      dragOriginsRef.current = origins;
-      tensionVelocitiesRef.current.clear();
-
-      if (primaryId && (target.kind === 'field' || target.kind === 'subfield')) {
-        const anchor = simNodes.find((sn) => sn.id === primaryId);
-        const childIds = groupIds.filter((id) => !primaryIds.includes(id));
-        dragChildIdsRef.current = childIds;
-        const world = new Map<string, { x: number; y: number }>();
-        for (const id of childIds) {
-          const n = simNodes.find((sn) => sn.id === id);
-          if (n) world.set(id, { x: n.x, y: n.y });
-        }
-        dragChildWorldRef.current = world;
-        skipSyncChildIdsRef.current = new Set(childIds);
-        lastContainerPosRef.current = anchor ? { x: anchor.x, y: anchor.y } : null;
-      } else {
-        dragChildIdsRef.current = [];
-        dragChildWorldRef.current.clear();
-        skipSyncChildIdsRef.current = new Set();
-        lastContainerPosRef.current = null;
-      }
-
+      const scope = dragScopeFor(target, simNodes);
+      dragScopeRef.current = scope;
+      dragPrimaryIdRef.current = scope.primaryId;
+      const primary = scope.primaryId
+        ? simNodes.find((s) => s.id === scope.primaryId)
+        : null;
+      dragPrimaryOriginRef.current = primary ? { x: primary.x, y: primary.y } : null;
+      velocitiesRef.current.clear();
       isDraggingRef.current = true;
-      pinnedFieldIdsRef.current.clear();
-      if (keepFieldSimRef.current && target.kind === 'field' && primaryId) {
-        const sim = simRef.current;
-        if (sim) {
-          for (const n of simNodes) {
-            if (n.kind === 'field' && n.id !== primaryId) {
-              n.fx = n.x;
-              n.fy = n.y;
-              pinnedFieldIdsRef.current.add(n.id);
-            }
-          }
-          setIsSettling(true);
-          sim.alpha(0.48).restart();
-        }
-      } else {
-        stopSimulation();
-      }
+      // Stop the d3 field sim — the unified integrator owns positions during a drag.
+      stopFieldSim();
     },
-    [cancelTensionSettle, stopSimulation],
+    [cancelSettle, stopFieldSim],
   );
 
   const moveDragGroup = useCallback(
-    (target: DragTarget, offsetX: number, offsetY: number, options?: MoveDragOptions) => {
+    (target: DragTarget, offsetX: number, offsetY: number) => {
       const simNodes = simNodesRef.current;
-      const primaryIds = primarySimNodeIdsForDragTarget(target);
+      const scope = dragScopeRef.current;
       const primaryId = dragPrimaryIdRef.current;
+      const origin = dragPrimaryOriginRef.current;
+      if (!scope || !primaryId || !origin) return;
+      const primary = simNodes.find((s) => s.id === primaryId);
+      if (!primary) return;
 
-      for (const id of primaryIds) {
-        const n = simNodes.find((sn) => sn.id === id);
-        const orig = dragOriginsRef.current.get(id);
-        if (!n || !orig) continue;
-        n.fx = orig.x + offsetX;
-        n.fy = orig.y + offsetY;
-        n.x = n.fx;
-        n.y = n.fy;
-        if (target.kind === 'concept') {
-          clampConceptNode(simNodes, n, tensionVelocitiesRef.current);
-          n.fx = n.x;
-          n.fy = n.y;
-        }
-      }
-
-      const anchor = primaryId ? simNodes.find((sn) => sn.id === primaryId) : null;
-      if (
-        primaryId &&
-        anchor &&
-        (target.kind === 'field' || target.kind === 'subfield') &&
-        dragChildIdsRef.current.length > 0
-      ) {
-        const prev = lastContainerPosRef.current ?? { x: anchor.x, y: anchor.y };
-        const fieldDelta = { dx: anchor.x - prev.x, dy: anchor.y - prev.y };
-        lastContainerPosRef.current = { x: anchor.x, y: anchor.y };
-        stepContainerDragPhysics(
-          simNodes,
-          primaryId,
-          dragChildIdsRef.current,
-          fieldDelta,
-          tensionVelocitiesRef.current,
-          dragChildWorldRef.current,
+      // Place the dragged body at the pointer, clamped to its container so it
+      // can never be dragged out of its parent disc.
+      primary.x = origin.x + offsetX;
+      primary.y = origin.y + offsetY;
+      if (target.kind === 'concept') {
+        clampConceptNode(simNodes, primary, velocitiesRef.current);
+      } else if (target.kind === 'subfield') {
+        const fields = new Map(
+          simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
         );
+        clampInsideFieldDisc(primary, fields);
       }
+      primary.fx = primary.x;
+      primary.fy = primary.y;
 
-      if (options?.tensionLinks && target.kind === 'concept') {
-        stepTensionSprings(
-          simNodes,
-          target.nodeId,
-          edges,
-          nodes,
-          tensionVelocitiesRef.current,
-        );
-      } else if (options?.tensionLinks && target.kind === 'subfield' && primaryId) {
-        stepSubfieldLinkSprings(
-          simNodes,
-          primaryId,
-          edges,
-          tensionVelocitiesRef.current,
-        );
-      }
-
-      if (keepFieldSimRef.current) {
-        simRef.current?.tick();
-      }
-
-      syncRelOffsetsFromField();
-      publishLayout();
+      // One frame of physics with the dragged body held fixed: bands pull
+      // neighbors, collisions push them apart, children ride their parent.
+      stepSimulation({
+        simNodes,
+        edges,
+        nodes,
+        velocities: velocitiesRef.current,
+        fixedIds: new Set([primaryId]),
+        movableKinds: scope.movableKinds,
+        activeFieldIds: scope.activeFieldIds,
+      });
+      renderLayout();
     },
-    [edges, nodes, publishLayout, syncRelOffsetsFromField],
+    [edges, nodes, renderLayout],
   );
 
   const endDragGroup = useCallback(
     (target: DragTarget | null, options?: EndDragOptions) => {
-      const fields = new Map(
-        simNodesRef.current.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-      );
-
+      // Restore map-pinned bodies to their stored position; free everything else.
       for (const n of simNodesRef.current) {
         const pinned =
           n.mapNode.pinned &&
           (n.mapNode.position.x !== 0 || n.mapNode.position.y !== 0);
         if (pinned) {
-          const px = n.mapNode.position.x;
-          const py = n.mapNode.position.y;
-          n.fx = px;
-          n.fy = py;
-          n.x = px;
-          n.y = py;
+          n.x = n.mapNode.position.x;
+          n.y = n.mapNode.position.y;
+          n.fx = n.x;
+          n.fy = n.y;
         } else {
           n.fx = null;
           n.fy = null;
         }
-
-        if (n.kind !== 'field' && n.relDx !== undefined && n.relDy !== undefined) {
-          const f = fields.get(n.fieldId);
-          if (f) {
-            n.relDx = n.x - f.x;
-            n.relDy = n.y - f.y;
-          }
-        }
       }
-      pinnedFieldIdsRef.current.clear();
-
-      dragOriginsRef.current.clear();
-      const containerChildIds = [...dragChildIdsRef.current];
-      const containerFieldId =
-        target?.kind === 'field'
-          ? target.fieldId
-          : target?.kind === 'subfield'
-            ? target.fieldId
-            : null;
-      dragChildIdsRef.current = [];
-      dragChildWorldRef.current.clear();
-      skipSyncChildIdsRef.current = new Set();
-      keepFieldSimRef.current = false;
-      lastContainerPosRef.current = null;
-      dragPrimaryIdRef.current = null;
       isDraggingRef.current = false;
 
-      if (target?.kind === 'field') {
-        releaseFieldSprings();
-      }
+      const primaryId = dragPrimaryIdRef.current;
+      const scope = dragScopeRef.current;
+      dragPrimaryIdRef.current = null;
+      dragPrimaryOriginRef.current = null;
 
-      const releaseContainer =
-        options?.releaseContainer &&
-        containerFieldId &&
-        (target?.kind === 'field' || target?.kind === 'subfield');
-      const hasContainerMotion = [...tensionVelocitiesRef.current.values()].some(
-        (v) => Math.hypot(v.vx, v.vy) > 0.08,
-      );
-
-      if (releaseContainer && hasContainerMotion) {
-        syncRelOffsetsFromField();
-        publishLayout();
-        const afterContainer = () => {
-          if (options?.releaseTension && target?.kind === 'subfield') {
-            runSubfieldSettle(
-              `${target.fieldId}__sf__${target.subfieldKey}`,
-              options.releaseVelocity ?? { vx: 0, vy: 0 },
-              options.onSettled,
-            );
-          } else {
-            options?.onSettled?.();
-          }
-        };
-        runContainerSettle(containerFieldId, containerChildIds, afterContainer);
+      if (!target || !scope || !primaryId) {
+        finalize();
+        renderLayout();
+        options?.onSettled?.();
         return;
       }
 
-      if (options?.releaseTension && target?.kind === 'concept') {
-        syncRelOffsetsFromField();
-        publishLayout();
-        runTensionSettle(
-          target.nodeId,
-          options.releaseVelocity ?? { vx: 0, vy: 0 },
-          options.onSettled,
-        );
-        return;
-      }
-
-      if (options?.releaseTension && target?.kind === 'subfield') {
-        syncRelOffsetsFromField();
-        publishLayout();
-        runSubfieldSettle(
-          `${target.fieldId}__sf__${target.subfieldKey}`,
-          options.releaseVelocity ?? { vx: 0, vy: 0 },
-          options.onSettled,
-        );
-        return;
-      }
-
-      finalizeChildLayout();
-      publishLayout();
-      if (target?.kind !== 'field') {
-        reheat(0.28);
-      }
-      options?.onSettled?.();
+      // Seed the pointer flick onto the released body, then settle with friction.
+      const rv = options?.releaseVelocity ?? { vx: 0, vy: 0 };
+      const existing = velocitiesRef.current.get(primaryId) ?? { vx: 0, vy: 0 };
+      velocitiesRef.current.set(primaryId, {
+        vx: existing.vx + rv.vx,
+        vy: existing.vy + rv.vy,
+      });
+      runSettle(options?.onSettled);
     },
-    [
-      finalizeChildLayout,
-      publishLayout,
-      reheat,
-      releaseFieldSprings,
-      runContainerSettle,
-      runSubfieldSettle,
-      runTensionSettle,
-      syncRelOffsetsFromField,
-    ],
+    [finalize, renderLayout, runSettle],
   );
 
   return {
@@ -535,6 +321,5 @@ export function useForceLayout(nodes: MapNode[], edges: MapEdge[]) {
     beginDragGroup,
     moveDragGroup,
     endDragGroup,
-    reheat,
   };
 }

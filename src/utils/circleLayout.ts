@@ -86,7 +86,9 @@ export function conceptWeight(node: MapNode, edges: MapEdge[]): number {
   ).length;
   const content = node.content.length;
   const tags = node.mscCodes.length + node.customTags.length;
-  return 1 + content * 0.8 + edgeCount * 1.2 + tags * 0.4;
+  // Content-dominant: a ball's size reflects how much it holds; links and tags
+  // only nudge it. (Was a near-even content/links/tags blend.)
+  return 1 + content * 1.6 + edgeCount * 0.4 + tags * 0.2;
 }
 
 export function conceptRadius(node: MapNode, edges: MapEdge[]): number {
@@ -239,17 +241,10 @@ function layoutFieldCenters(
         const dx = pb.x - pa.x;
         const dy = pb.y - pa.y;
         const dist = Math.max(Math.hypot(dx, dy), 1);
-        let fx = 0;
-        let fy = 0;
-        if (dist < minDist) {
-          const push = (minDist - dist) * 0.55;
-          fx = (dx / dist) * push;
-          fy = (dy / dist) * push;
-        } else {
-          const repulse = 9000 / (dist * dist);
-          fx = (dx / dist) * repulse;
-          fy = (dy / dist) * repulse;
-        }
+        const strength =
+          dist < minDist ? (minDist - dist) * 0.55 : 9000 / (dist * dist);
+        const fx = (dx / dist) * strength;
+        const fy = (dy / dist) * strength;
         if (!fields[i].pinned) { pa.vx -= fx; pa.vy -= fy; }
         if (!fields[j].pinned) { pb.vx += fx; pb.vy += fy; }
       }

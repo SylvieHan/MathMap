@@ -8,21 +8,12 @@ import {
 import type { MapEdge, MapNode } from '../types';
 import { isTagEdgeId } from './layout';
 
-const TENSION_SUBSTEPS = 6;
-const TENSION_DAMPING = 0.8;
-const TENSION_DRAG_DAMPING = 0.38;
-const TENSION_SETTLE_THRESHOLD = 0.12;
-const MAX_DRAG_SPEED = 3.2;
-
-const CONTAINER_DRAG_SUBSTEPS = 5;
-const CONTAINER_SETTLE_THRESHOLD = 0.1;
-const COLLISION_STRENGTH = 0.85;
 const COLLISION_SEPARATION_ITERS = 6;
 
 const SPRING_K = {
-  sameSubfield: 0.55,
-  sameField: 0.42,
-  crossField: 0.32,
+  sameSubfield: 0.22,
+  sameField: 0.16,
+  crossField: 0.12,
 } as const;
 import {
   computeCircleLayout,
@@ -49,6 +40,9 @@ export interface ForceSimNode {
   /** Offset from parent field center (subfields & concepts) */
   relDx?: number;
   relDy?: number;
+  /** Initial layout position; field bands rest at the home spacing. */
+  homeX?: number;
+  homeY?: number;
 }
 
 export interface SimLink {
@@ -66,7 +60,10 @@ export function zeroVelocities(nodes: ForceSimNode[]): void {
 
 /**
  * Sync child positions from field-relative offsets, then clamp every subfield
- * inside its field and every concept inside its subfield (all fields).
+ * inside its field and every concept inside its subfield (all fields). Finally
+ * runs a global no-overlap pass so nothing ever passes through anything — even
+ * mid-drag. Nodes in `skipChildIds` keep their current position and act as fixed
+ * colliders (used for the ball under the pointer).
  */
 export function syncChildrenToFields(
   simNodes: ForceSimNode[],
@@ -103,6 +100,8 @@ export function syncChildrenToFields(
     }
   }
 
+  separateConceptsInFields(simNodes, fields, skipChildIds);
+
   for (const n of simNodes) {
     if (skipChildIds?.has(n.id)) continue;
     if (n.kind === 'field' || n.relDx === undefined || n.relDy === undefined) continue;
@@ -110,6 +109,46 @@ export function syncChildrenToFields(
     if (!f) continue;
     n.relDx = n.x - f.x;
     n.relDy = n.y - f.y;
+  }
+}
+
+/**
+ * Hard no-overlap for every concept in every field. Nodes in `fixed` (pointer
+ * ball, pinned) are immovable but still push others away. Runs a few rounds of
+ * separate + re-clamp so balls stay inside their containers without overlapping.
+ */
+export function separateConceptsInFields(
+  simNodes: ForceSimNode[],
+  fields: Map<string, ForceSimNode>,
+  fixed?: Set<string>,
+): void {
+  const byField = new Map<string, ForceSimNode[]>();
+  for (const n of simNodes) {
+    if (n.kind !== 'concept') continue;
+    let arr = byField.get(n.fieldId);
+    if (!arr) {
+      arr = [];
+      byField.set(n.fieldId, arr);
+    }
+    arr.push(n);
+  }
+
+  for (const cs of byField.values()) {
+    if (cs.length < 2) continue;
+    const movable = new Set(
+      cs.filter((n) => !n.mapNode.pinned && !fixed?.has(n.id)).map((n) => n.id),
+    );
+    if (movable.size === 0) continue;
+    // Re-clamp to the FIELD disc only between rounds. Clamping back into the
+    // (small) subfield disc here would recreate overlaps and cause a
+    // separate/clamp oscillation; subfield membership is restored by the
+    // finalize snap once motion comes to rest.
+    for (let round = 0; round < 3; round++) {
+      separateCircleOverlaps(cs, movable, new Set());
+      for (const n of cs) {
+        if (movable.has(n.id)) clampInsideFieldDisc(n, fields);
+      }
+    }
   }
 }
 
@@ -148,6 +187,8 @@ export function buildForceGraph(
       fy: pinned ? item.y : null,
       relDx,
       relDy,
+      homeX: item.x,
+      homeY: item.y,
     });
   }
 
@@ -300,7 +341,7 @@ function innerRadius(container: ForceSimNode, child: ForceSimNode, padding = 5):
   return Math.max(container.r - child.r - padding, 6);
 }
 
-function clampInsideFieldDisc(
+export function clampInsideFieldDisc(
   n: ForceSimNode,
   fields: Map<string, ForceSimNode>,
   velocities?: Map<string, { vx: number; vy: number }>,
@@ -308,8 +349,8 @@ function clampInsideFieldDisc(
   if (n.kind === 'field') return;
   const f = fields.get(n.fieldId);
   if (!f) return;
-  let dx = n.x - f.x;
-  let dy = n.y - f.y;
+  const dx = n.x - f.x;
+  const dy = n.y - f.y;
   const dist = Math.hypot(dx, dy);
   const maxD = innerRadius(f, n);
   if (dist > maxD && dist > 0) {
@@ -335,8 +376,8 @@ function clampInsideContainerDisc(
   container: ForceSimNode,
   velocities?: Map<string, { vx: number; vy: number }>,
 ): void {
-  let dx = child.x - container.x;
-  let dy = child.y - container.y;
+  const dx = child.x - container.x;
+  const dy = child.y - container.y;
   const dist = Math.hypot(dx, dy);
   const maxD = innerRadius(container, child);
   if (dist > maxD && dist > 0) {
@@ -395,34 +436,29 @@ export function clampConceptNode(
   clampConceptContainers(node, simNodes, fields, velocities);
 }
 
-/** Frames a settle animation runs before motion is fully cooled to rest. */
+/** Safety cap on settle-loop frames (the loop normally sleeps well before this). */
 export const SETTLE_MAX_FRAMES = 150;
-const SETTLE_FREE_FRAMES = 40;
+/** Frames a settle runs freely before the cool-down tail begins. */
+export const SETTLE_FREE_FRAMES = 40;
 
 /**
- * Anneal a settle: let physics run freely, then geometrically bleed off energy so
- * the system always reaches rest (no infinite oscillation). Returns true when the
- * settle should hard-stop (cooled out).
+ * Damping for frame `frame` of a release settle. For a free period it is the
+ * normal friction (so the overshoot/bounce plays out), then it ramps to 0 — at
+ * damping 0 a body's velocity (and thus its motion) is forced to zero, so even a
+ * coupled field network whose stretched bands keep re-injecting force is
+ * guaranteed to come to rest. Fast settles sleep before the ramp even starts.
  */
-export function annealSettleVelocities(
-  velocities: Map<string, { vx: number; vy: number }>,
+export function settleDamping(
   frame: number,
+  freeFrames = SETTLE_FREE_FRAMES,
   maxFrames = SETTLE_MAX_FRAMES,
-): boolean {
-  const cool =
-    frame < SETTLE_FREE_FRAMES
-      ? 1
-      : Math.max(0, 1 - (frame - SETTLE_FREE_FRAMES) / (maxFrames - SETTLE_FREE_FRAMES));
-  if (cool < 1) {
-    for (const v of velocities.values()) {
-      v.vx *= cool;
-      v.vy *= cool;
-    }
-  }
-  return frame >= maxFrames;
+): number {
+  if (frame < freeFrames) return DAMPING;
+  const ramp = Math.max(0, 1 - (frame - freeFrames) / (maxFrames - freeFrames));
+  return DAMPING * ramp;
 }
 
-function capVelocity(v: { vx: number; vy: number }, max = MAX_DRAG_SPEED): void {
+function capVelocity(v: { vx: number; vy: number }, max = 3.2): void {
   const speed = Math.hypot(v.vx, v.vy);
   if (speed > max) {
     const s = max / speed;
@@ -451,51 +487,18 @@ export function snapConceptsToContainers(
   }
 }
 
-function applyFieldCollisions(
-  mates: ForceSimNode[],
-  movable: Set<string>,
-  velocities: Map<string, { vx: number; vy: number }>,
-  fixedIds: Set<string>,
-): void {
-  for (let i = 0; i < mates.length; i++) {
-    for (let j = i + 1; j < mates.length; j++) {
-      const a = mates[i];
-      const b = mates[j];
-      if (a.mapNode.pinned || b.mapNode.pinned) continue;
-      if (!movable.has(a.id) && !movable.has(b.id)) continue;
-
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 0.01;
-      const minDist = a.r + b.r + 3;
-      if (dist >= minDist) continue;
-
-      const overlap = minDist - dist;
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const push = overlap * COLLISION_STRENGTH * 0.5;
-
-      if (movable.has(a.id) && !fixedIds.has(a.id)) {
-        const va = velocities.get(a.id) ?? { vx: 0, vy: 0 };
-        va.vx -= nx * push;
-        va.vy -= ny * push;
-        velocities.set(a.id, va);
-      }
-      if (movable.has(b.id) && !fixedIds.has(b.id)) {
-        const vb = velocities.get(b.id) ?? { vx: 0, vy: 0 };
-        vb.vx += nx * push;
-        vb.vy += ny * push;
-        velocities.set(b.id, vb);
-      }
-    }
-  }
-}
-
-/** Hard overlap resolution — balls cannot pass through each other. */
+/**
+ * Hard overlap resolution — balls cannot pass through each other. When
+ * `velocities` is given, collisions are inelastic: the approaching component of
+ * each body's velocity along the contact normal is removed, so a body pressed
+ * against another by a stretched band loses that energy instead of jittering
+ * forever (this is what lets the field-level settle reach rest).
+ */
 function separateCircleOverlaps(
   mates: ForceSimNode[],
   movable: Set<string>,
   fixedIds: Set<string>,
+  velocities?: Map<string, { vx: number; vy: number }>,
   worldPositions?: Map<string, { x: number; y: number }>,
   iterations = COLLISION_SEPARATION_ITERS,
 ): void {
@@ -526,489 +529,35 @@ function separateCircleOverlaps(
           a.x -= nx * overlap * aShare;
           a.y -= ny * overlap * aShare;
           worldPositions?.set(a.id, { x: a.x, y: a.y });
+          const va = velocities?.get(a.id);
+          if (va) {
+            const into = va.vx * nx + va.vy * ny; // velocity toward b
+            if (into > 0) {
+              va.vx -= into * nx;
+              va.vy -= into * ny;
+            }
+          }
         }
         if (bMove) {
           b.x += nx * overlap * bShare;
           b.y += ny * overlap * bShare;
           worldPositions?.set(b.id, { x: b.x, y: b.y });
+          const vb = velocities?.get(b.id);
+          if (vb) {
+            const into = -(vb.vx * nx + vb.vy * ny); // velocity toward a
+            if (into > 0) {
+              vb.vx += into * nx;
+              vb.vy += into * ny;
+            }
+          }
         }
       }
     }
   }
-}
-
-/**
- * Children stay in world space while the container moves; rim contact and collisions
- * impart momentum gradually.
- */
-export function stepContainerDragPhysics(
-  simNodes: ForceSimNode[],
-  containerId: string,
-  childIds: string[],
-  fieldDelta: { dx: number; dy: number },
-  velocities: Map<string, { vx: number; vy: number }>,
-  worldPositions: Map<string, { x: number; y: number }>,
-  substeps = CONTAINER_DRAG_SUBSTEPS,
-): void {
-  const container = simNodes.find((n) => n.id === containerId);
-  if (!container) return;
-
-  const fields = new Map(
-    simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-  );
-  const children = childIds
-    .map((id) => simNodes.find((n) => n.id === id))
-    .filter((n): n is ForceSimNode => !!n && !n.mapNode.pinned);
-  const movable = new Set(children.map((n) => n.id));
-  const fixedIds = new Set([containerId]);
-
-  const dragSpeed = Math.hypot(fieldDelta.dx, fieldDelta.dy);
-
-  for (let step = 0; step < substeps; step++) {
-    for (const child of children) {
-      const world = worldPositions.get(child.id);
-      if (!world) continue;
-
-      child.x = world.x;
-      child.y = world.y;
-
-      const cx = child.x - container.x;
-      const cy = child.y - container.y;
-      const dist = Math.hypot(cx, cy);
-      const innerR = innerRadius(container, child);
-      const penetration = dist - innerR;
-      const trailDot = cx * fieldDelta.dx + cy * fieldDelta.dy;
-      const isTrailing = trailDot < -0.5;
-      const gapToRim = innerR - dist;
-
-      let carry = 0;
-      if (isTrailing && dragSpeed > 0.02) {
-        if (penetration > 0) {
-          carry = 0.52;
-        } else if (innerR > 0 && gapToRim < innerR * 0.3) {
-          carry = (1 - gapToRim / (innerR * 0.3)) * 0.38;
-        }
-      }
-
-      if (carry > 0) {
-        const lag = 0.22;
-        child.x = world.x + fieldDelta.dx * carry * (1 - lag);
-        child.y = world.y + fieldDelta.dy * carry * (1 - lag);
-        velocities.set(child.id, {
-          vx: fieldDelta.dx * carry * 0.35,
-          vy: fieldDelta.dy * carry * 0.35,
-        });
-      } else {
-        velocities.set(child.id, { vx: 0, vy: 0 });
-      }
-
-      if (penetration > 0 && dist > 0) {
-        const nx = cx / dist;
-        const ny = cy / dist;
-        child.x -= nx * penetration * 0.55;
-        child.y -= ny * penetration * 0.55;
-      }
-
-      if (container.kind === 'subfield' && child.kind === 'concept') {
-        clampInsideContainerDisc(child, container, velocities);
-      }
-      clampInsideFieldDisc(child, fields, velocities);
-      worldPositions.set(child.id, { x: child.x, y: child.y });
-    }
-
-    if (children.length > 1) {
-      separateCircleOverlaps(children, movable, fixedIds, worldPositions);
-      applyFieldCollisions(children, movable, velocities, fixedIds);
-    }
-    for (const child of children) {
-      if (container.kind === 'subfield' && child.kind === 'concept') {
-        clampInsideContainerDisc(child, container, velocities);
-      }
-      clampInsideFieldDisc(child, fields, velocities);
-      worldPositions.set(child.id, { x: child.x, y: child.y });
-    }
-  }
-}
-
-/** Continue interior momentum after releasing a field or subfield drag. */
-export function stepContainerReleasePhysics(
-  simNodes: ForceSimNode[],
-  fieldId: string,
-  childIds: string[],
-  velocities: Map<string, { vx: number; vy: number }>,
-): boolean {
-  const fields = new Map(
-    simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-  );
-  const children = childIds
-    .map((id) => simNodes.find((n) => n.id === id))
-    .filter((n): n is ForceSimNode => !!n && !n.mapNode.pinned);
-  const movable = new Set(children.map((n) => n.id));
-
-  let maxSpeed = 0;
-
-  for (const child of children) {
-    let v = velocities.get(child.id) ?? { vx: 0, vy: 0 };
-
-    if (child.relDx !== undefined && child.relDy !== undefined) {
-      const f = fields.get(fieldId);
-      if (f) {
-        const tx = f.x + child.relDx;
-        const ty = f.y + child.relDy;
-        v.vx += (tx - child.x) * 0.03;
-        v.vy += (ty - child.y) * 0.03;
-      }
-    }
-
-    capVelocity(v, 2.8);
-    v.vx *= 0.86;
-    v.vy *= 0.86;
-    velocities.set(child.id, v);
-    child.x += v.vx;
-    child.y += v.vy;
-    clampInsideFieldDisc(child, fields, velocities);
-    maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
-  }
-
-  if (children.length > 1) {
-    separateCircleOverlaps(children, movable, new Set());
-    applyFieldCollisions(children, movable, velocities, new Set());
-  }
-  for (const child of children) {
-    clampInsideFieldDisc(child, fields, velocities);
-    const v = velocities.get(child.id);
-    if (v) maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
-  }
-
-  return maxSpeed > CONTAINER_SETTLE_THRESHOLD;
 }
 
 function subfieldSimId(fieldId: string, subfieldKey: string): string {
   return `${fieldId}__sf__${subfieldKey}`;
-}
-
-/** Move concepts with a subfield when link springs shift the subfield ball. */
-function translateConceptsInSubfield(
-  simNodes: ForceSimNode[],
-  subfield: ForceSimNode,
-  dx: number,
-  dy: number,
-  fields: Map<string, ForceSimNode>,
-  velocities?: Map<string, { vx: number; vy: number }>,
-): void {
-  if (!subfield.subfieldKey || (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6)) return;
-  for (const c of simNodes) {
-    if (
-      c.kind !== 'concept' ||
-      c.fieldId !== subfield.fieldId ||
-      c.subfieldKey !== subfield.subfieldKey ||
-      c.mapNode.pinned
-    ) {
-      continue;
-    }
-    c.x += dx;
-    c.y += dy;
-    clampConceptContainers(c, simNodes, fields, velocities);
-  }
-}
-
-/** Directly linked subfield balls only (no multi-hop ripple during drag). */
-function collectSubfieldAffected(
-  anchor: ForceSimNode,
-  edges: MapEdge[],
-  simNodes: ForceSimNode[],
-): Set<string> {
-  const affected = new Set<string>([anchor.id]);
-  const anchorKey = anchor.subfieldKey;
-  if (!anchorKey) return affected;
-
-  for (const edge of edges) {
-    if (isTagEdgeId(edge.id)) continue;
-    const src = simNodes.find((n) => n.id === edge.source && n.kind === 'concept');
-    const tgt = simNodes.find((n) => n.id === edge.target && n.kind === 'concept');
-    if (!src?.subfieldKey || !tgt?.subfieldKey) continue;
-    if (src.fieldId !== anchor.fieldId || tgt.fieldId !== anchor.fieldId) continue;
-
-    const srcInAnchor = src.subfieldKey === anchorKey;
-    const tgtInAnchor = tgt.subfieldKey === anchorKey;
-    if (!srcInAnchor && !tgtInAnchor) continue;
-
-    if (srcInAnchor && tgt.subfieldKey !== anchorKey) {
-      affected.add(subfieldSimId(src.fieldId, tgt.subfieldKey));
-    }
-    if (tgtInAnchor && src.subfieldKey !== anchorKey) {
-      affected.add(subfieldSimId(tgt.fieldId, src.subfieldKey));
-    }
-  }
-  return affected;
-}
-
-/** Elastic links between subfield balls while shift-dragging one subfield. */
-export function stepSubfieldLinkSprings(
-  simNodes: ForceSimNode[],
-  anchorId: string,
-  edges: MapEdge[],
-  velocities: Map<string, { vx: number; vy: number }>,
-  substeps = TENSION_SUBSTEPS,
-): void {
-  const anchor = simNodes.find((n) => n.id === anchorId && n.kind === 'subfield');
-  if (!anchor) return;
-
-  const subfields = simNodes.filter((n) => n.kind === 'subfield');
-  const byId = new Map(subfields.map((n) => [n.id, n]));
-  const affected = collectSubfieldAffected(anchor, edges, simNodes);
-  const fields = new Map(
-    simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-  );
-
-  for (const id of affected) {
-    if (id !== anchorId) velocities.set(id, { vx: 0, vy: 0 });
-  }
-
-  for (let step = 0; step < substeps; step++) {
-    const prevPos = new Map<string, { x: number; y: number }>();
-    for (const id of affected) {
-      const n = byId.get(id);
-      if (n) prevPos.set(id, { x: n.x, y: n.y });
-    }
-
-    const forces = new Map<string, { fx: number; fy: number }>();
-    for (const id of affected) forces.set(id, { fx: 0, fy: 0 });
-
-    for (const edge of edges) {
-      if (isTagEdgeId(edge.id)) continue;
-      const src = simNodes.find((n) => n.id === edge.source && n.kind === 'concept');
-      const tgt = simNodes.find((n) => n.id === edge.target && n.kind === 'concept');
-      if (!src?.subfieldKey || !tgt?.subfieldKey) continue;
-      if (src.fieldId !== anchor.fieldId) continue;
-
-      const a = byId.get(subfieldSimId(src.fieldId, src.subfieldKey));
-      const b = byId.get(subfieldSimId(tgt.fieldId, tgt.subfieldKey));
-      if (!a || !b || a.id === b.id) continue;
-      if (!affected.has(a.id) || !affected.has(b.id)) continue;
-      if (a.id !== anchorId && b.id !== anchorId) continue;
-
-      const w = edge.weight ?? 1;
-      const ideal = 36 + 18 / w;
-      const k = 0.22;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const stretch = dist - ideal;
-      const mag = k * stretch * w;
-      const fx = (dx / dist) * mag;
-      const fy = (dy / dist) * mag;
-
-      forces.get(a.id)!.fx += fx;
-      forces.get(a.id)!.fy += fy;
-      forces.get(b.id)!.fx -= fx;
-      forces.get(b.id)!.fy -= fy;
-    }
-
-    const fixedIds = new Set([anchorId]);
-    const collisionNodes = [...affected]
-      .map((id) => byId.get(id))
-      .filter((n): n is ForceSimNode => !!n);
-    if (collisionNodes.length > 1) {
-      const movable = new Set(collisionNodes.map((n) => n.id));
-      separateCircleOverlaps(collisionNodes, movable, fixedIds);
-      applyFieldCollisions(collisionNodes, movable, velocities, fixedIds);
-    }
-
-    for (const id of affected) {
-      const n = byId.get(id);
-      if (!n || n.mapNode.pinned || id === anchorId) {
-        velocities.set(id, { vx: 0, vy: 0 });
-        continue;
-      }
-
-      const f = forces.get(id) ?? { fx: 0, fy: 0 };
-      const v = velocities.get(id) ?? { vx: 0, vy: 0 };
-      v.vx = (v.vx + f.fx) * TENSION_DRAG_DAMPING;
-      v.vy = (v.vy + f.fy) * TENSION_DRAG_DAMPING;
-      capVelocity(v, 2.2);
-      velocities.set(id, v);
-      n.x += v.vx;
-      n.y += v.vy;
-      clampInsideFieldDisc(n, fields, velocities);
-    }
-
-    if (collisionNodes.length > 1) {
-      const movable = new Set(collisionNodes.map((n) => n.id));
-      separateCircleOverlaps(collisionNodes, movable, fixedIds);
-    }
-
-    clampInsideFieldDisc(anchor, fields, velocities);
-
-    for (const id of affected) {
-      if (id === anchorId) continue;
-      const n = byId.get(id);
-      const prev = prevPos.get(id);
-      if (!n || !prev) continue;
-      translateConceptsInSubfield(
-        simNodes,
-        n,
-        n.x - prev.x,
-        n.y - prev.y,
-        fields,
-        velocities,
-      );
-    }
-  }
-}
-
-/** Free oscillation after releasing a subfield shift-drag. */
-export function stepSubfieldReleaseSprings(
-  simNodes: ForceSimNode[],
-  edges: MapEdge[],
-  velocities: Map<string, { vx: number; vy: number }>,
-): boolean {
-  const subfields = simNodes.filter((n) => n.kind === 'subfield');
-  const byId = new Map(subfields.map((n) => [n.id, n]));
-  const affected = new Set<string>();
-  for (const id of velocities.keys()) {
-    if (byId.has(id)) affected.add(id);
-  }
-  if (affected.size === 0) return false;
-
-  for (const edge of edges) {
-    if (isTagEdgeId(edge.id)) continue;
-    const src = simNodes.find((n) => n.id === edge.source && n.kind === 'concept');
-    const tgt = simNodes.find((n) => n.id === edge.target && n.kind === 'concept');
-    if (!src?.subfieldKey || !tgt?.subfieldKey || src.fieldId !== tgt.fieldId) continue;
-    const a = byId.get(subfieldSimId(src.fieldId, src.subfieldKey));
-    const b = byId.get(subfieldSimId(tgt.fieldId, tgt.subfieldKey));
-    if (!a || !b || a.id === b.id) continue;
-    if (affected.has(a.id)) affected.add(b.id);
-    if (affected.has(b.id)) affected.add(a.id);
-  }
-
-  const fields = new Map(
-    simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
-  );
-  let maxSpeed = 0;
-
-  for (let step = 0; step < TENSION_SUBSTEPS; step++) {
-    const prevPos = new Map<string, { x: number; y: number }>();
-    for (const id of affected) {
-      const n = byId.get(id);
-      if (n) prevPos.set(id, { x: n.x, y: n.y });
-    }
-
-    const forces = new Map<string, { fx: number; fy: number }>();
-    for (const id of affected) forces.set(id, { fx: 0, fy: 0 });
-
-    for (const edge of edges) {
-      if (isTagEdgeId(edge.id)) continue;
-      const src = simNodes.find((n) => n.id === edge.source && n.kind === 'concept');
-      const tgt = simNodes.find((n) => n.id === edge.target && n.kind === 'concept');
-      if (!src?.subfieldKey || !tgt?.subfieldKey || src.fieldId !== tgt.fieldId) continue;
-
-      const a = byId.get(subfieldSimId(src.fieldId, src.subfieldKey));
-      const b = byId.get(subfieldSimId(tgt.fieldId, tgt.subfieldKey));
-      if (!a || !b || a.id === b.id) continue;
-      if (!affected.has(a.id) || !affected.has(b.id)) continue;
-
-      const w = edge.weight ?? 1;
-      const ideal = 36 + 18 / w;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const stretch = dist - ideal;
-      const mag = 0.68 * stretch * w;
-      const fx = (dx / dist) * mag;
-      const fy = (dy / dist) * mag;
-      forces.get(a.id)!.fx += fx;
-      forces.get(a.id)!.fy += fy;
-      forces.get(b.id)!.fx -= fx;
-      forces.get(b.id)!.fy -= fy;
-    }
-
-    const collisionNodes = [...affected]
-      .map((id) => byId.get(id))
-      .filter((n): n is ForceSimNode => !!n);
-    if (collisionNodes.length > 1) {
-      separateCircleOverlaps(collisionNodes, new Set(collisionNodes.map((n) => n.id)), new Set());
-    }
-
-    for (const id of affected) {
-      const n = byId.get(id);
-      if (!n || n.mapNode.pinned) continue;
-      const f = forces.get(id) ?? { fx: 0, fy: 0 };
-      const v = velocities.get(id) ?? { vx: 0, vy: 0 };
-      v.vx = (v.vx + f.fx) * TENSION_DAMPING;
-      v.vy = (v.vy + f.fy) * TENSION_DAMPING;
-      capVelocity(v);
-      velocities.set(id, v);
-      n.x += v.vx;
-      n.y += v.vy;
-      clampInsideFieldDisc(n, fields, velocities);
-      maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
-    }
-
-    for (const id of affected) {
-      const n = byId.get(id);
-      const prev = prevPos.get(id);
-      if (!n || !prev) continue;
-      translateConceptsInSubfield(
-        simNodes,
-        n,
-        n.x - prev.x,
-        n.y - prev.y,
-        fields,
-        velocities,
-      );
-    }
-  }
-
-  return maxSpeed > TENSION_SETTLE_THRESHOLD;
-}
-
-function collectTensionAffected(
-  anchorId: string | null,
-  edges: MapEdge[],
-  byId: Map<string, ForceSimNode>,
-  velocities: Map<string, { vx: number; vy: number }>,
-): Set<string> {
-  const affected = new Set<string>();
-  if (anchorId) {
-    affected.add(anchorId);
-    const anchorNode = byId.get(anchorId);
-    for (const edge of edges) {
-      if (isTagEdgeId(edge.id)) continue;
-      const a = byId.get(edge.source);
-      const b = byId.get(edge.target);
-      if (!a || !b) continue;
-      if (anchorNode && (a.fieldId !== anchorNode.fieldId || b.fieldId !== anchorNode.fieldId)) {
-        continue;
-      }
-      if (edge.source === anchorId) affected.add(edge.target);
-      if (edge.target === anchorId) affected.add(edge.source);
-    }
-    return affected;
-  }
-
-  for (const id of velocities.keys()) {
-    if (byId.has(id)) affected.add(id);
-  }
-  // Grow only through same-field links; cross-field tension is handled at the
-  // field level and would otherwise drag unrelated fields against their bounds.
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const edge of edges) {
-      if (isTagEdgeId(edge.id)) continue;
-      const a = byId.get(edge.source);
-      const b = byId.get(edge.target);
-      if (!a || !b || a.fieldId !== b.fieldId) continue;
-      if (!affected.has(a.id) && !affected.has(b.id)) continue;
-      const before = affected.size;
-      affected.add(a.id);
-      affected.add(b.id);
-      if (affected.size > before) grew = true;
-    }
-  }
-  return affected;
 }
 
 function springIdeal(
@@ -1026,10 +575,10 @@ function springIdeal(
     : sameSubfield
       ? SPRING_K.sameSubfield
       : SPRING_K.sameField;
-  const base = crossField ? 48 + 28 / w : sameSubfield ? 18 + 10 / w : 28 + 14 / w;
-  // Never ask linked balls to overlap; rest length respects the no-overlap gap so
-  // springs and hard separation cannot fight forever.
-  const ideal = Math.max(base, a.r + b.r + 6);
+  const base = crossField ? 48 + 28 / w : sameSubfield ? 24 + 10 / w : 34 + 14 / w;
+  // Rest length keeps comfortable spacing and never asks linked balls to overlap,
+  // so springs and the hard no-overlap pass cannot fight.
+  const ideal = Math.max(base, a.r + b.r + 12);
   return { ideal, k };
 }
 
@@ -1037,118 +586,266 @@ function springIdeal(
  * Velocity-based link springs. anchorId = dragged concept (fixed); null = free release oscillation.
  * Returns true while motion is still visible.
  */
-export function stepTensionSprings(
+// ---- Unified simulation ---------------------------------------------------
+// One semi-implicit Euler integrator that replaces the per-target step
+// functions above. Springs are one-sided elastic bands (tension only, so they
+// never fight the hard no-overlap pass), a single DAMPING coefficient is the
+// friction, and constraints (no-overlap + boundary) are projected every substep.
+
+/** Friction: velocity retained each substep (<1 ⇒ motion always decays to rest). */
+export const DAMPING = 0.88;
+/** Below this max body speed the settle loop sleeps (guarantees rest). */
+export const SLEEP_THRESHOLD = 0.12;
+const SIM_SUBSTEPS = 6;
+const SIM_MAX_SPEED = 3.2;
+
+export interface SimContext {
+  simNodes: ForceSimNode[];
+  edges: MapEdge[];
+  nodes: MapNode[];
+  velocities: Map<string, { vx: number; vy: number }>;
+  /** Pinned to pointer / map-pinned: immovable colliders. */
+  fixedIds: Set<string>;
+  /**
+   * Body kinds that may move this frame. A concept drag wakes only concepts; a
+   * subfield drag wakes subfields + concepts; a field drag wakes all three.
+   */
+  movableKinds: Set<SimKind>;
+  /** Restrict subfield/concept simulation to bodies in these fields. */
+  activeFieldIds: Set<string>;
+}
+
+export interface StepParams {
+  dt?: number;
+  substeps?: number;
+  damping?: number;
+}
+
+/** Field-band tuning. A field band rests at the layout (home) spacing, so it is
+ *  slack in the resting map and only pulls once you drag a field away from its
+ *  neighbors — which keeps the layout stable and lets releases settle fast. */
+const FIELD_BAND_K = 0.03;
+const FIELD_BAND_GAP = 50;
+
+/**
+ * Apply one one-sided elastic band between two bodies. A band only pulls when
+ * stretched past its rest length (slack bands exert nothing), so it can never
+ * ask two bodies closer than the no-overlap pass allows. Force is added only to
+ * whichever endpoints are movable (present in `forces`).
+ */
+function applyBand(
+  a: ForceSimNode,
+  b: ForceSimNode,
+  ideal: number,
+  k: number,
+  w: number,
+  forces: Map<string, { fx: number; fy: number }>,
+): void {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const stretch = dist - ideal;
+  if (stretch <= 0) return;
+  const mag = k * stretch * w;
+  const fx = (dx / dist) * mag;
+  const fy = (dy / dist) * mag;
+  const fa = forces.get(a.id);
+  const fb = forces.get(b.id);
+  if (fa) {
+    fa.fx += fx;
+    fa.fy += fy;
+  }
+  if (fb) {
+    fb.fx -= fx;
+    fb.fy -= fy;
+  }
+}
+
+/** Concept↔concept bands (manual edges, within each active field). */
+function accumulateConceptBands(
   simNodes: ForceSimNode[],
-  anchorId: string | null,
   edges: MapEdge[],
   nodes: MapNode[],
-  velocities: Map<string, { vx: number; vy: number }>,
-  substeps = TENSION_SUBSTEPS,
-): boolean {
-  const concepts = simNodes.filter((n) => n.kind === 'concept');
-  const byId = new Map(concepts.map((n) => [n.id, n]));
+  activeFieldIds: Set<string>,
+  forces: Map<string, { fx: number; fy: number }>,
+): void {
+  const byId = new Map(simNodes.filter((n) => n.kind === 'concept').map((c) => [c.id, c]));
+  for (const edge of edges) {
+    if (isTagEdgeId(edge.id)) continue;
+    const a = byId.get(edge.source);
+    const b = byId.get(edge.target);
+    if (!a || !b || a.fieldId !== b.fieldId || !activeFieldIds.has(a.fieldId)) continue;
+    const w = edge.weight ?? 1;
+    const { ideal, k } = springIdeal(a, b, nodes, w);
+    applyBand(a, b, ideal, k, w, forces);
+  }
+}
+
+/** Subfield↔subfield bands (from concept edges crossing subfields, within each active field). */
+function accumulateSubfieldBands(
+  simNodes: ForceSimNode[],
+  edges: MapEdge[],
+  nodes: MapNode[],
+  activeFieldIds: Set<string>,
+  forces: Map<string, { fx: number; fy: number }>,
+): void {
+  const subById = new Map(simNodes.filter((n) => n.kind === 'subfield').map((s) => [s.id, s]));
+  const conceptById = new Map(simNodes.filter((n) => n.kind === 'concept').map((c) => [c.id, c]));
+  for (const edge of edges) {
+    if (isTagEdgeId(edge.id)) continue;
+    const cs = conceptById.get(edge.source);
+    const ct = conceptById.get(edge.target);
+    if (!cs?.subfieldKey || !ct?.subfieldKey || cs.fieldId !== ct.fieldId) continue;
+    if (!activeFieldIds.has(cs.fieldId)) continue;
+    const a = subById.get(subfieldSimId(cs.fieldId, cs.subfieldKey));
+    const b = subById.get(subfieldSimId(ct.fieldId, ct.subfieldKey));
+    if (!a || !b || a.id === b.id) continue;
+    const w = edge.weight ?? 1;
+    const { ideal, k } = springIdeal(a, b, nodes, w);
+    applyBand(a, b, ideal, k, w, forces);
+  }
+}
+
+/** Field↔field bands (from cross-field concept edges, aggregated). */
+function accumulateFieldBands(
+  simNodes: ForceSimNode[],
+  edges: MapEdge[],
+  forces: Map<string, { fx: number; fy: number }>,
+): void {
+  const fieldById = new Map(simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]));
+  const conceptById = new Map(simNodes.filter((n) => n.kind === 'concept').map((c) => [c.id, c]));
+  const weights = new Map<string, number>();
+  for (const edge of edges) {
+    if (isTagEdgeId(edge.id)) continue;
+    const cs = conceptById.get(edge.source);
+    const ct = conceptById.get(edge.target);
+    if (!cs || !ct || cs.fieldId === ct.fieldId) continue;
+    const key = [cs.fieldId, ct.fieldId].sort().join('|');
+    weights.set(key, (weights.get(key) ?? 0) + (edge.weight ?? 1));
+  }
+  for (const [key, w] of weights) {
+    const [fa, fb] = key.split('|');
+    const a = fieldById.get(fa);
+    const b = fieldById.get(fb);
+    if (!a || !b) continue;
+    // Rest at the layout spacing (slack in the resting map); never below the
+    // no-overlap minimum so the band and collision pass never fight.
+    const home =
+      a.homeX !== undefined && a.homeY !== undefined && b.homeX !== undefined && b.homeY !== undefined
+        ? Math.hypot(a.homeX - b.homeX, a.homeY - b.homeY)
+        : 0;
+    const ideal = Math.max(a.r + b.r + FIELD_BAND_GAP, home);
+    applyBand(a, b, ideal, FIELD_BAND_K, w, forces);
+  }
+}
+
+/**
+ * One frame of the unified hierarchical integrator. The same loop drives every
+ * drag and every release; the drag only decides which kinds are awake
+ * (`movableKinds`) and which body is pinned (`fixedIds`). Each substep:
+ *   1. accumulate elastic-band forces for each awake kind,
+ *   2. integrate velocity with a single friction coefficient,
+ *   3. integrate position,
+ *   4. project hard constraints outer→inner: fields don't overlap; subfields
+ *      don't overlap and stay inside their field; concepts don't overlap and
+ *      stay inside their subfield + field (killing the normal velocity on
+ *      contact). A child follows a moving parent because the parent's disc
+ *      contains it, so it rides along and jostles, then friction brings it to
+ *      rest. Returns the largest body speed this frame (for the sleep test).
+ */
+export function stepSimulation(ctx: SimContext, params: StepParams = {}): number {
+  const { simNodes, edges, nodes, velocities, fixedIds, movableKinds, activeFieldIds } = ctx;
+  const substeps = params.substeps ?? SIM_SUBSTEPS;
+  const damping = params.damping ?? DAMPING;
+  const dt = params.dt ?? 1;
+
   const fields = new Map(
     simNodes.filter((n) => n.kind === 'field').map((f) => [f.fieldId, f]),
   );
-  // Spring participants: dragged ball + direct neighbors (drag), or whole moving
-  // component (release). Springs are limited to these so dragging one ball does
-  // not yank the whole graph into orbit.
-  const springSet = collectTensionAffected(anchorId, edges, byId, velocities);
-  if (springSet.size === 0) return false;
 
-  const isDrag = !!anchorId;
-  const damping = isDrag ? TENSION_DRAG_DAMPING : TENSION_DAMPING;
-  const maxV = isDrag ? 2.6 : MAX_DRAG_SPEED;
+  const simField = movableKinds.has('field');
+  const simSub = movableKinds.has('subfield');
+  const simConcept = movableKinds.has('concept');
 
-  // Collision + boundary participants: EVERY movable concept in the involved
-  // fields, so all balls (linked or not) keep no-overlap and stay in bounds.
-  const involvedFields = new Set<string>();
-  for (const id of springSet) {
-    const n = byId.get(id);
-    if (n) involvedFields.add(n.fieldId);
-  }
-  const mates = concepts.filter(
-    (n) => involvedFields.has(n.fieldId) && !n.mapNode.pinned,
+  const fieldBodies = simField ? simNodes.filter((n) => n.kind === 'field') : [];
+  const subBodies = simSub
+    ? simNodes.filter((n) => n.kind === 'subfield' && activeFieldIds.has(n.fieldId))
+    : [];
+  const conceptBodies = simConcept
+    ? simNodes.filter((n) => n.kind === 'concept' && activeFieldIds.has(n.fieldId))
+    : [];
+  const allBodies = [...fieldBodies, ...subBodies, ...conceptBodies];
+
+  const movable = new Set(
+    allBodies.filter((n) => !n.mapNode.pinned && !fixedIds.has(n.id)).map((n) => n.id),
   );
-  const mateMovable = new Set(mates.map((n) => n.id));
-  const fixedIds = anchorId ? new Set([anchorId]) : new Set<string>();
+  if (movable.size === 0) return 0;
 
-  let maxSpeed = 0;
+  // Group subfields/concepts by field once for the per-field constraint passes.
+  const subsByField = new Map<string, ForceSimNode[]>();
+  for (const n of subBodies) {
+    (subsByField.get(n.fieldId) ?? subsByField.set(n.fieldId, []).get(n.fieldId)!).push(n);
+  }
+  const conceptsByField = new Map<string, ForceSimNode[]>();
+  for (const n of conceptBodies) {
+    (conceptsByField.get(n.fieldId) ?? conceptsByField.set(n.fieldId, []).get(n.fieldId)!).push(n);
+  }
+
+  // Measure actual displacement this frame, not velocity: a body pressed
+  // against a wall by a stretched band has velocity but doesn't move, and is
+  // visually at rest — so the settle loop should sleep on it.
+  const startPos = new Map<string, { x: number; y: number }>();
+  for (const n of allBodies) {
+    if (movable.has(n.id)) startPos.set(n.id, { x: n.x, y: n.y });
+  }
 
   for (let step = 0; step < substeps; step++) {
     const forces = new Map<string, { fx: number; fy: number }>();
-    for (const n of mates) forces.set(n.id, { fx: 0, fy: 0 });
+    for (const id of movable) forces.set(id, { fx: 0, fy: 0 });
 
-    for (const edge of edges) {
-      if (isTagEdgeId(edge.id)) continue;
-      const a = byId.get(edge.source);
-      const b = byId.get(edge.target);
-      if (!a || !b) continue;
-      if (a.fieldId !== b.fieldId) continue;
-      if (!springSet.has(a.id) || !springSet.has(b.id)) continue;
-      if (isDrag && edge.source !== anchorId && edge.target !== anchorId) continue;
+    if (simField) accumulateFieldBands(simNodes, edges, forces);
+    if (simSub) accumulateSubfieldBands(simNodes, edges, nodes, activeFieldIds, forces);
+    if (simConcept) accumulateConceptBands(simNodes, edges, nodes, activeFieldIds, forces);
 
-      const w = edge.weight ?? 1;
-      const { ideal, k } = springIdeal(a, b, nodes, w);
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const stretch = dist - ideal;
-      const mag = k * stretch * w;
-      const fx = (dx / dist) * mag;
-      const fy = (dy / dist) * mag;
-
-      const fa = forces.get(a.id);
-      const fb = forces.get(b.id);
-      if (fa) {
-        fa.fx += fx;
-        fa.fy += fy;
-      }
-      if (fb) {
-        fb.fx -= fx;
-        fb.fy -= fy;
-      }
-    }
-
-    if (mates.length > 1) {
-      separateCircleOverlaps(mates, mateMovable, fixedIds);
-      applyFieldCollisions(mates, mateMovable, velocities, fixedIds);
-    }
-
-    for (const n of mates) {
-      if (n.mapNode.pinned) continue;
-      if (n.id === anchorId) {
-        velocities.set(n.id, { vx: 0, vy: 0 });
-        continue;
-      }
-
+    for (const n of allBodies) {
+      if (!movable.has(n.id)) continue;
       const f = forces.get(n.id) ?? { fx: 0, fy: 0 };
       const v = velocities.get(n.id) ?? { vx: 0, vy: 0 };
-      v.vx = (v.vx + f.fx) * damping;
-      v.vy = (v.vy + f.fy) * damping;
-      capVelocity(v, maxV);
+      v.vx = (v.vx + f.fx * dt) * damping;
+      v.vy = (v.vy + f.fy * dt) * damping;
+      capVelocity(v, SIM_MAX_SPEED);
       velocities.set(n.id, v);
-
-      n.x += v.vx;
-      n.y += v.vy;
-      clampConceptContainers(n, simNodes, fields, velocities);
-      maxSpeed = Math.max(maxSpeed, Math.hypot(v.vx, v.vy));
+      n.x += v.vx * dt;
+      n.y += v.vy * dt;
     }
 
-    if (mates.length > 1) {
-      separateCircleOverlaps(mates, mateMovable, fixedIds);
-      for (const n of mates) {
-        clampConceptContainers(n, simNodes, fields, velocities);
+    // Constraints, outer → inner. Fields collide (no container). Subfields
+    // collide within their field and stay inside it. Concepts collide within
+    // their field and stay inside their subfield + field.
+    if (simField && fieldBodies.length > 1) {
+      separateCircleOverlaps(fieldBodies, movable, fixedIds, velocities);
+    }
+    if (simSub) {
+      for (const subs of subsByField.values()) {
+        if (subs.length > 1) separateCircleOverlaps(subs, movable, fixedIds, velocities);
+        for (const n of subs) if (movable.has(n.id)) clampInsideFieldDisc(n, fields, velocities);
+      }
+    }
+    if (simConcept) {
+      for (const cs of conceptsByField.values()) {
+        if (cs.length > 1) separateCircleOverlaps(cs, movable, fixedIds, velocities);
+        for (const n of cs) if (movable.has(n.id)) clampConceptContainers(n, simNodes, fields, velocities);
       }
     }
 
-    if (anchorId) {
-      const anchorNode = byId.get(anchorId);
-      if (anchorNode) clampConceptContainers(anchorNode, simNodes, fields, velocities);
-    }
   }
 
-  return maxSpeed > TENSION_SETTLE_THRESHOLD;
+  let maxMove = 0;
+  for (const n of allBodies) {
+    const s = startPos.get(n.id);
+    if (s) maxMove = Math.max(maxMove, Math.hypot(n.x - s.x, n.y - s.y));
+  }
+  return maxMove;
 }
 
 /** Clamp a circle inside a field for overview decor display */

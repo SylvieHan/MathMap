@@ -1,6 +1,6 @@
 # Publish your MathMap as a website
 
-> **New to this folder?** See **[START-HERE.md](./START-HERE.md)** first.
+> **New here?** Start with the **[README](../README.md)**.
 
 Your map can live at a public link (read-only) while others use the repo locally to build their own editable maps.
 
