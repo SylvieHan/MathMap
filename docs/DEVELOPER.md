@@ -58,7 +58,7 @@ Editor opens at **http://localhost:5173** (Vite default). Launchers use `--open 
 | `npm run deploy` | `build:pages` + push `dist/` to `gh-pages` branch |
 | `npm run lint` | ESLint |
 
-**Prebuild hook:** every `build` runs `scripts/export-bundled-map.ts`, which writes `public/bundled-map.json` from `src/data/richSeed.ts`.
+**Map source:** `public/bundled-map.json` is committed and is the live map (no prebuild regenerates it). Edit it via `npm run map:export` / `map:import` (see §8).
 
 ---
 
@@ -293,26 +293,32 @@ Headless regression test: `npx tsx scripts/physics-test.ts` (see §15).
 
 ## 8. Published map content
 
-**Source of truth for the live website:** `src/data/richSeed.ts`
+**Source of truth for the live website:** `public/bundled-map.json` (committed,
+not generated). The published site `fetch`es it as plain JSON.
 
-- ~8 fields, ~65 concepts with definitions, history, notes.
-- `SEED_VERSION = 5` (metadata only; editor no longer auto-seeds from this).
-
-**Build pipeline:**
+The owner edits it through the editor via a `.mathmap` round-trip (no hand-edited
+JSON, no code):
 
 ```
-richSeed.ts
-    ↓  scripts/export-bundled-map.ts  (runs on prebuild)
-public/bundled-map.json
-    ↓  npm run build:pages
-dist/bundled-map.json  →  deployed to gh-pages
+public/bundled-map.json --npm run map:export--> <title>.mathmap
+   --(Import in editor, edit, Export)--> edited .mathmap
+   --npm run map:import-- <file>--> public/bundled-map.json
+   --npm run deploy--> dist/bundled-map.json on gh-pages
 ```
+
+`scripts/map-export.mjs` / `map-import.mjs` convert between the JSON and the
+editor's `.mathmap` zip (manifest format in `src/utils/exportImport.ts`).
 
 To update the live site:
 
-1. Edit `richSeed.ts` (or export a `.mathmap` and convert — no script for that yet; manual or extend export script).
-2. Run `npm run deploy` (needs `gh-pages` auth / push access).
+1. `npm run map:export`, edit the `.mathmap` in the editor, `npm run map:import -- <file>`.
+2. Commit `public/bundled-map.json`, then `npm run deploy` (needs `gh-pages` push access).
 3. Site URL: `https://sylviehan.github.io/MathMap/`
+
+> **Legacy:** `src/data/richSeed.ts` + `npm run seed:richseed` regenerate the
+> original factory map and **overwrite** `bundled-map.json` — only use them to
+> reset to the seed. There is no longer a prebuild step (`build` no longer
+> regenerates the JSON), so editing `bundled-map.json` is safe.
 
 Optional env when exporting:
 
@@ -381,7 +387,7 @@ Vite exposes only `VITE_*` vars to client code via `import.meta.env`.
 
 ### Change the public map
 
-Edit `src/data/richSeed.ts` → `npm run deploy`.
+`npm run map:export` → edit the `.mathmap` in the editor → `npm run map:import -- <file>` → commit `public/bundled-map.json` → `npm run deploy`. (See §8.)
 
 ### Add a toolbar button
 

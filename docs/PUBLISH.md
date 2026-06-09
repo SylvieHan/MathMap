@@ -31,7 +31,31 @@ npm run deploy
 
 This builds the published site and pushes `dist/` to the **`gh-pages`** branch.
 
-**Edit the live map content** in `src/data/richSeed.ts`, then run `npm run deploy` again.
+### Edit your published map in the editor (recommended)
+
+Your published map is the file **`public/bundled-map.json`**. You don't edit that
+JSON by hand — you edit it visually in the editor and convert it back:
+
+```bash
+# 1. Turn the published map into an editable .mathmap file
+npm run map:export                 # writes <map-title>.mathmap in the repo root
+
+# 2. Open the editor, click Import, choose that .mathmap, edit, then Export
+#    (the editor downloads an updated .mathmap, usually to ~/Downloads)
+npm run dev -- --open
+
+# 3. Fold your edits back into the published map
+npm run map:import -- ~/Downloads/your-map.mathmap
+
+# 4. Commit and publish
+git add public/bundled-map.json && git commit -m "Update map"
+git push origin main               # source on main
+npm run deploy                     # build + push to gh-pages (refresh live site)
+```
+
+`bundled-map.json` is the single source of truth for the live site — it is **not**
+regenerated from code. (`src/data/richSeed.ts` + `npm run seed:richseed` only
+exist to recreate the original factory map and will overwrite `bundled-map.json`.)
 
 Optional title override when building:
 
